@@ -2,7 +2,7 @@
 """evalue_test.py — Ever / Tapestry, Python-side unified variant tests."""
 
 import math
-from evalue import (
+from evalue import (NullAtBoundary,
     EValue, EvType, EV_CERTAIN,
     serialise, deserialise,
     lift_literal, lift_sql_row, lift_html_element, lift_python,
@@ -97,9 +97,11 @@ ok("real literal",   lift_literal("3.14").ev_tag == EvType.REAL)
 ok("bool true lit",  lift_literal("true").ev_bool is True)
 ok("bool False lit", lift_literal("False").ev_bool is False)
 ok("str literal",    lift_literal('"hi"').ev_text == "hi")
-ok("null → void",    lift_literal("null").ev_tag == EvType.VOID)
-ok("nil → void",     lift_literal("nil").ev_tag == EvType.VOID)
-ok("None → void",    lift_literal("None").ev_tag == EvType.VOID)
+# A null spelling is not a value. It lifts to UNKNOWN with its reason
+# (unknown_test.py covers the whole no-null boundary).
+ok("null → unknown", lift_literal("null").ev_tag == EvType.UNKNOWN)
+ok("nil → unknown",  lift_literal("nil").ev_tag == EvType.UNKNOWN)
+ok("None → unknown", lift_literal("None").ev_tag == EvType.UNKNOWN)
 
 row = lift_sql_row(["id","name","score"],["1","Alice","98.6"])
 ok("SQL row is record",     row.ev_tag == EvType.RECORD)
@@ -122,7 +124,11 @@ ok("Python str",    lift_python("hi").ev_text == "hi")
 ok("Python bytes",  lift_python(b"\x00").ev_blob == b"\x00")
 ok("Python list",   lift_python([1,2,3]).ev_tag == EvType.LIST)
 ok("Python dict",   lift_python({"a":1}).ev_tag == EvType.RECORD)
-ok("Python None",   lift_python(None).ev_tag == EvType.VOID)
+try:
+    lift_python(None)
+    ok("Python None refused", False)
+except NullAtBoundary:
+    ok("Python None refused", True)
 ok("Python nested", lift_python([1,{"a":2}]).get(1).ev_tag == EvType.RECORD)
 
 print("\n.native — back to Python values")

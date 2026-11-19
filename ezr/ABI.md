@@ -108,6 +108,39 @@ ends up in the wrong Python field and the test fails loudly.
 
 ---
 
+## No null crosses
+
+A raw null says "nothing here" and loses why. None of them cross:
+
+| Where a null used to get in | What happens now |
+|---|---|
+| Python `None` to `lift_python`, `serialise`, a list or record item | refused: `NullAtBoundary`, naming the path (`$.a[1].b`) |
+| a `null`/`nil`/`None`/`NULL`/`undefined`/`nullptr`/empty literal, C or Python | `UNKNOWN("null literal 'nil'")` at the literal's span |
+| an SQL NULL | `UNKNOWN("SQL NULL in column 'name'")` at (source, row, column) |
+| `ev_text(NULL)`, `ev_from_literal(NULL)` | `UNKNOWN` naming the NULL pointer, never `""` or VOID |
+| a missing, empty or cut-off wire buffer; a tag the reader does not know | C: `UNKNOWN` saying which; Python: refused |
+| a particle that claims a value (`CONFIDENT`, `CERTAIN`, ...) but holds `None` or something the buffer cannot carry | `encode` and `decode` refuse it; a value that is not known is state Z |
+
+`UNKNOWN` is tag 8 in both `ev_type` and `EvType`. It stores the source
+span's line and column in `body.span` and `source NUL reason NUL` in the
+192-byte inline text, so `EValue` is still 208 bytes and every layout
+assertion above still holds. On the wire it is tag, u16 reason length,
+reason, u8 source length, source, i32 line, i32 col. It is worth 0, it
+equals nothing (not even another `UNKNOWN`), and Python's `.native`
+raises rather than returning `None`. `VOID` is unchanged: an explicit
+unit, never made from a null.
+
+`0-atom-c/unknown_test.c` and `2-interpreter-python/unknown_test.py`
+prove it, and the Python suite runs C's lifters as a process to show
+both sides write the same bytes.
+
+Not yet moved over: the runtime still uses `VOID` to mean z when it
+evaluates (`runtime.py`, `tests/ev_integrate.py`, `tests/gold_check.py`),
+and C's `ev_list_get` out of range and `ev_record_get` on a missing field
+still return `VOID`. Those are the next nulls to retire.
+
+---
+
 ## The flat buffer
 
 `encode(p)` → 440 bytes. `decode(buf)` → Python `E`.

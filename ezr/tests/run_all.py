@@ -33,6 +33,13 @@ SUITES = [
     ("Parser", f"{sys.executable} tests/test_parser.py"),
     ("ABI", f"{sys.executable} 2-interpreter-python/abi_test.py"),
     ("EValue (Py)", f"{sys.executable} 2-interpreter-python/evalue_test.py"),
+    # No null across the C/Python boundary: EV_UNKNOWN with a reason and a
+    # source span on both sides, byte-identical on the wire.
+    (
+        "Unknown (C)",
+        "gcc -std=c99 -Wall 0-atom-c/unknown_test.c 0-atom-c/evalue.c 0-atom-c/tapestry.c -o /tmp/t_unk -lm && /tmp/t_unk",  # noqa: E501
+    ),
+    ("Unknown (Py)", f"{sys.executable} 2-interpreter-python/unknown_test.py"),
     ("Interpreter", f"{sys.executable} 2-interpreter-python/ever_test.py"),
     ("IR bridge", f"{sys.executable} 2-interpreter-python/ir_runner.py"),
     ("Pipeline", f"{sys.executable} 2-interpreter-python/syntax_test.py"),
