@@ -1,0 +1,50 @@
+# file<TAB>canonical verdict -- written by parser_agreement.py --write
+# from a run where all twenty forge pairs agreed. Edit only by re-running that.
+examples/largest.ezr	(prog (def largest (xs) (if (== (call len xs) 1) (call head xs) (let rest (call largest (call tail xs)) (if (> (call head xs) rest) (call head xs) rest)))) (def main () (call largest (list 3 17 8 42 5))))
+examples/readings.ezr	(prog (def total (xs) (if (== (call len xs) 0) 0 (+ (call head xs) (call total (call tail xs))))) (def biggest (xs) (if (== (call len xs) 1) (call head xs) (let rest (call biggest (call tail xs)) (if (> (call head xs) rest) (call head xs) rest)))) (def smallest (xs) (if (== (call len xs) 1) (call head xs) (let rest (call smallest (call tail xs)) (if (< (call head xs) rest) (call head xs) rest)))) (def summary (xs) (let n (call show (call len xs)) (let s (call show (call total xs)) (let m (call show (/ s n)) (let hi (call show (call biggest xs)) (let lo (call show (call smallest xs)) (- hi lo))))))) (def main () (call summary (list 12 7 19 3 14 8))))
+examples/sum.ezr	(prog (def total (xs) (if (== (call len xs) 0) 0 (+ (call head xs) (call total (call tail xs))))) (def main () (call total (list 1 2 3 4 5))))
+examples/trust.ezr	(prog (def describe (n) (let half (/ n 2) (if (> half 10) (str 'big') (str 'small')))) (def main () (call show (call describe 30))))
+tests/parser_corpus/01_number.ezr	(prog 42)
+tests/parser_corpus/02_float.ezr	(prog 3.25)
+tests/parser_corpus/03_string.ezr	(prog (str 'hello'))
+tests/parser_corpus/04_bool.ezr	(prog true)
+tests/parser_corpus/05_list.ezr	(prog (list 1 2 3))
+tests/parser_corpus/06_empty_list.ezr	(prog (list))
+tests/parser_corpus/07_nested_list.ezr	(prog (list (list 1) (list 2 3)))
+tests/parser_corpus/10_mul_binds_tighter.ezr	(prog (+ 1 (* 2 3)))
+tests/parser_corpus/11_parens.ezr	(prog (* (+ 1 2) 3))
+tests/parser_corpus/12_sub_left_assoc.ezr	(prog (- (- 10 4) 3))
+tests/parser_corpus/13_div_left_assoc.ezr	(prog (/ (/ 8 2) 2))
+tests/parser_corpus/14_unary_minus.ezr	(prog (+ (- 0 3) (- 0 x)))
+tests/parser_corpus/15_redundant_parens.ezr	(prog 1)
+tests/parser_corpus/20_cmp_below_arith.ezr	(prog (< (+ 1 2) 4))
+tests/parser_corpus/21_equality.ezr	(prog (== x y))
+tests/parser_corpus/22_not_equal.ezr	(prog (!= a b))
+tests/parser_corpus/23_cmp_rhs_arith.ezr	(prog (>= a (* b 2)))
+tests/parser_corpus/24_cmp_chain_refused.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/30_if.ezr	(prog (if (> x 0) x 0))
+tests/parser_corpus/31_nested_if.ezr	(prog (if a (if b 1 2) 3))
+tests/parser_corpus/32_if_as_operand.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/40_let.ezr	(prog (let x 5 (+ x 1)))
+tests/parser_corpus/41_nested_let.ezr	(prog (let a 1 (let b (+ a 1) (* a b))))
+tests/parser_corpus/50_call_no_args.ezr	(prog (call f))
+tests/parser_corpus/51_call_args.ezr	(prog (call g 1 2))
+tests/parser_corpus/52_nested_calls.ezr	(prog (call f (call g x) (call h 1 2)))
+tests/parser_corpus/53_call_on_list.ezr	(prog (call head (list 1 2)))
+tests/parser_corpus/60_def.ezr	(prog (def double (n) (* n 2)))
+tests/parser_corpus/61_defs.ezr	(prog (def double (x) (* x 2)) (def square (n) (* n n)) (def add (a b) (+ a b)))
+tests/parser_corpus/62_recursive_def.ezr	(prog (def fact (n) (if (<= n 1) 1 (* n (call fact (- n 1))))))
+tests/parser_corpus/70_comments.ezr	(prog (let x 2 (* x x)))
+tests/parser_corpus/71_multiline_expr.ezr	(prog (if (> total 100) (- total 10) total))
+tests/parser_corpus/80_lex_bad_char.ezr	FAIL[lex/misbound]
+tests/parser_corpus/81_unterminated_string.ezr	FAIL[lex/unbounded]
+tests/parser_corpus/82_missing_else.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/83_missing_rparen.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/84_trailing_operator.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/85_two_expressions.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/86_def_then_expression.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/87_trailing_comma.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/88_not_is_not_core.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/89_empty_program.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/90_def_missing_body.ezr	FAIL[parse/unbounded]
+tests/parser_corpus/91_let_missing_in.ezr	FAIL[parse/unbounded]

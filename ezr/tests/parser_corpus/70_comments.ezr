@@ -1,0 +1,4 @@
+# a comment line
+
+# another
+let x = 2 in x * x  # trailing comment

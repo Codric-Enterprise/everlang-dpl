@@ -57,6 +57,10 @@ SUITES = [
     ("Integration", f"{sys.executable} tests/ev_integrate.py"),
     ("Gold standard", f"{sys.executable} tests/gold_check.py"),
     ("Golden master", f"{sys.executable} tests/golden.py"),
+    # One golden corpus through every front end: the forge's 20 pairs,
+    # syntax.py (what ezrun runs) and the Java parser. Known splits are
+    # listed in tests/parser_corpus/KNOWN_SPLITS.json and printed.
+    ("Parser agreement", f"{sys.executable} tests/parser_agreement.py"),
     ("Notebook", f"{sys.executable} 2-interpreter-python/notebook.py"),
     ("Research", f"{sys.executable} research.py"),
     # The examples must do what their comments say. Nothing checked them
