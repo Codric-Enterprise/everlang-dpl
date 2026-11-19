@@ -217,10 +217,11 @@ EV_SUITE_TAGGED(ks_text_boundaries, "ks", "ks_bounds") {
     EValue quote = ev_text("say \"hi\"");
     ASSERT_EQ_STR("say \"hi\"", quote.text);
 
-    /* NULL is tolerated, not dereferenced */
+    /* NULL is tolerated, not dereferenced, and not passed off as ""
+     * either: it is UNKNOWN and says so (unknown_test.c). */
     EValue vnull = ev_text(NULL);
-    ASSERT_EQ_INT(EV_TEXT, vnull.tag);
-    ASSERT_EQ_INT(0, (int)strlen(vnull.text));
+    ASSERT_EQ_INT(EV_UNKNOWN, vnull.tag);
+    ASSERT_EQ_STR("NULL pointer passed to ev_text", ev_unknown_reason(&vnull));
 }
 
 /* ═══════════════════════════════════════════════════════════════
