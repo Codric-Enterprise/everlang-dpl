@@ -61,6 +61,11 @@ SUITES = [
     # syntax.py (what ezrun runs) and the Java parser. Known splits are
     # listed in tests/parser_corpus/KNOWN_SPLITS.json and printed.
     ("Parser agreement", f"{sys.executable} tests/parser_agreement.py"),
+    # Hypothesis against every Python confidence operator: an unknown
+    # input poisons the result, and a known result never outranks its
+    # weakest input. Known violations are pinned, printed, and must keep
+    # reproducing until fixed. SKIPs if hypothesis is not installed.
+    ("Confidence props", f"{sys.executable} tests/confidence_properties.py"),
     ("Notebook", f"{sys.executable} 2-interpreter-python/notebook.py"),
     ("Research", f"{sys.executable} research.py"),
     # The examples must do what their comments say. Nothing checked them
