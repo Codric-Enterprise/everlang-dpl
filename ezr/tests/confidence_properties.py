@@ -69,10 +69,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "2-interpreter-python"))
 
 try:
-    from hypothesis import HealthCheck, given, settings
+    from hypothesis import HealthCheck, assume, find, given, settings
     from hypothesis import strategies as st
     from hypothesis.errors import NoSuchExample
-    from hypothesis import assume, find
 except ImportError:
     print("SKIP: hypothesis is not installed (python3 -m pip install hypothesis)")
     sys.exit(0)
@@ -80,11 +79,16 @@ except ImportError:
 import abstract  # noqa: E402
 import syntax  # noqa: E402
 import vowels  # noqa: E402
-from ever import E, Defect, E_CERTAIN, combine, e_val, e_z  # noqa: E402
+from ever import E, E_CERTAIN, Defect, combine, e_val, e_z  # noqa: E402
 
 EXAMPLES = int(os.environ.get("EVER_PROPS_EXAMPLES", "300"))
-SETTINGS = settings(max_examples=EXAMPLES, derandomize=True, deadline=None,
-                    suppress_health_check=list(HealthCheck), database=None)
+SETTINGS = settings(
+    max_examples=EXAMPLES,
+    derandomize=True,
+    deadline=None,
+    suppress_health_check=list(HealthCheck),
+    database=None,
+)
 
 passed = failed = 0
 
@@ -129,36 +133,39 @@ def thread(values=SCALARS):
 
 
 def weakest(inputs: List[E]) -> int:
-    return min(i.confidence for i in inputs)
+    return int(min(i.confidence for i in inputs))
 
 
 def laws(op: str, inputs: List[E], out: E) -> None:
     """Assert POISON and CEILING for one application of an operator."""
     if any(i.is_z for i in inputs):
-        assert out.is_z, (f"POISON: {op} returned {out!r} although an input was Z: "
-                          f"{inputs!r}")
+        assert out.is_z, f"POISON: {op} returned {out!r} although an input was Z: " f"{inputs!r}"
         return
     if not out.is_z:
         assert out.confidence <= weakest(inputs), (
             f"CEILING: {op} returned confidence {out.confidence} above the weakest "
-            f"input {weakest(inputs)}: {inputs!r} -> {out!r}")
-        assert out.lo <= weakest(inputs) or out.state.name == "EQUIV", (
-            f"CEILING: {op} lo={out.lo} above the weakest input {weakest(inputs)}")
+            f"input {weakest(inputs)}: {inputs!r} -> {out!r}"
+        )
+        assert (
+            out.lo <= weakest(inputs) or out.state.name == "EQUIV"
+        ), f"CEILING: {op} lo={out.lo} above the weakest input {weakest(inputs)}"
 
 
 def ev(src: str, env: dict, fns: Optional[dict] = None) -> E:
     node, err = syntax.parse(src)
-    assert err is None, f"test program did not parse: {src!r}: {err!r}"
+    assert node is not None, f"test program did not parse: {src!r}: {err!r}"
     return syntax.eval_ast(node, env, fns or {})
 
 
 # ── 1. ever.combine ───────────────────────────────────────────────────
+
 
 def combine_laws(op: str) -> Callable[[], None]:
     @SETTINGS
     @given(a=thread(NUMS), b=thread(NUMS))
     def prop(a: E, b: E) -> None:
         laws(f"combine({op})", [a, b], combine(a, b, op, "r"))
+
     return prop
 
 
@@ -191,6 +198,7 @@ def binop_laws(op: str) -> Callable[[], None]:
     def prop(a: E, b: E) -> None:
         assume(not overflows(op, a, b))
         laws(f"eval_ast x {op} y", [a, b], ev(f"x {op} y", {"x": a, "y": b}))
+
     return prop
 
 
@@ -204,8 +212,7 @@ def list_laws(a: E, b: E, c: E) -> None:
 @given(a=thread(NUMS), b=thread(NUMS))
 def let_laws(a: E, b: E) -> None:
     assume(not overflows("+", a, b))
-    laws("eval_ast let v = x in v + y", [a, b],
-         ev("let v = x in v + y", {"x": a, "y": b}))
+    laws("eval_ast let v = x in v + y", [a, b], ev("let v = x in v + y", {"x": a, "y": b}))
 
 
 @SETTINGS
@@ -215,8 +222,11 @@ def if_known_laws(c: E, a: E, b: E) -> None:
     # other is never evaluated (abstract.branch explains why it must not
     # be, or every recursive function diverges).
     taken = a if c.value else b
-    laws("eval_ast if c then x else y (c known)", [c, taken],
-         ev("if c then x else y", {"c": c, "x": a, "y": b}))
+    laws(
+        "eval_ast if c then x else y (c known)",
+        [c, taken],
+        ev("if c then x else y", {"c": c, "x": a, "y": b}),
+    )
 
 
 @SETTINGS
@@ -225,12 +235,12 @@ def call_laws(a: E, b: E, trust: int) -> None:
     if not (a.is_z or b.is_z):
         prod = e_val("pq", a.value * b.value, 1)
         assume(not overflows("*", a, b) and not overflows("+", prod, a))
-    node, err = syntax.parse("def f(p, q) = p * q + p")
-    assert err is None
-    fns = {d.name: d for d in node.statements} if isinstance(node, syntax.Program) \
-        else {node.name: node}
+    fdef, err = syntax.parse("def f(p, q) = p * q + p")
+    assert isinstance(fdef, syntax.FnDef), (fdef, err)
+    call, err = syntax.parse("f(x, y)")
+    assert call is not None, err
     t = syntax.Trust(confidence={"f": trust})
-    out = syntax.eval_ast(syntax.parse("f(x, y)")[0], {"x": a, "y": b}, fns, trust=t)
+    out = syntax.eval_ast(call, {"x": a, "y": b}, {"f": fdef}, trust=t)
     # [APP]: the function's own standing is an input too.
     fn_thread = e_val("f", "fn", trust)
     laws("eval_ast user call f(x, y)", [a, b, fn_thread], out)
@@ -241,10 +251,12 @@ def builtin_laws(name: str) -> Callable[[], None]:
     @given(xs=thread(st.lists(INTS, min_size=1, max_size=6)))
     def prop(xs: E) -> None:
         laws(f"eval_ast {name}(xs)", [xs], ev(f"{name}(xs)", {"xs": xs}))
+
     return prop
 
 
 # ── 3. abstract.py ────────────────────────────────────────────────────
+
 
 @SETTINGS
 @given(parts=st.lists(thread(), min_size=1, max_size=6))
@@ -258,11 +270,11 @@ def chain_laws(parts: List[E]) -> None:
 @given(c=known(st.booleans()), a=thread(), b=thread())
 def branch_known_laws(c: E, a: E, b: E) -> None:
     taken = a if c.value else b
-    laws("abstract.branch (c known)", [c, taken],
-         abstract.branch(c, lambda: a, lambda: b, "r"))
+    laws("abstract.branch (c known)", [c, taken], abstract.branch(c, lambda: a, lambda: b, "r"))
 
 
 # ── 4. vowels.py ──────────────────────────────────────────────────────
+
 
 @SETTINGS
 @given(p=thread())
@@ -270,8 +282,9 @@ def interject_laws(p: E) -> None:
     out = vowels.i_interject(p, lambda _seen: None, "seen")
     laws("vowels.i_interject", [p], out)
     if not p.is_z:
-        assert out.confidence == p.confidence and out.value == p.value, (
-            f"i_interject moved {p!r} to {out!r}; observation must be invisible")
+        assert (
+            out.confidence == p.confidence and out.value == p.value
+        ), f"i_interject moved {p!r} to {out!r}; observation must be invisible"
 
 
 @SETTINGS
@@ -298,6 +311,7 @@ def integrate_poison_laws(a: E, b: E) -> None:
 
 # ── known violations: pinned, printed, never weakened ─────────────────
 
+
 def still_violates(label: str, strategy, op: Callable, inputs_of: Callable) -> Callable[[], None]:
     def violated(x) -> bool:
         try:
@@ -310,20 +324,32 @@ def still_violates(label: str, strategy, op: Callable, inputs_of: Callable) -> C
 
     def prop() -> None:
         try:
-            x = find(strategy, violated, settings=settings(
-                max_examples=max(EXAMPLES, 500), derandomize=True, database=None,
-                suppress_health_check=list(HealthCheck)))
+            x = find(
+                strategy,
+                violated,
+                settings=settings(
+                    max_examples=max(EXAMPLES, 500),
+                    derandomize=True,
+                    database=None,
+                    suppress_health_check=list(HealthCheck),
+                ),
+            )
         except NoSuchExample:
-            raise AssertionError(f"{label} no longer violates the laws -- it has been "
-                                 f"fixed: move it to the passing properties and out "
-                                 f"of the known-violation list")
+            raise AssertionError(
+                f"{label} no longer violates the laws -- it has been "
+                f"fixed: move it to the passing properties and out "
+                f"of the known-violation list"
+            )
         try:
             laws(label, inputs_of(x), op(x))
         except AssertionError as exc:
             print(f"      still violated, e.g. {str(exc).splitlines()[0][:220]}")
         except Exception as exc:
-            print(f"      still violated, e.g. {label} on {x!r} raised "
-                  f"{type(exc).__name__}: {exc}"[:260])
+            print(
+                f"      still violated, e.g. {label} on {x!r} raised "
+                f"{type(exc).__name__}: {exc}"[:260]
+            )
+
     return prop
 
 
@@ -331,19 +357,22 @@ V1 = still_violates(
     "eval_ast if c then x else y (c is Z)",
     st.tuples(unknown(), known(INTS), known(INTS)),
     lambda t: ev("if c then x else y", {"c": t[0], "x": t[1], "y": t[2]}),
-    lambda t: [t[0], t[1], t[2]])
+    lambda t: [t[0], t[1], t[2]],
+)
 
 V1b = still_violates(
     "abstract.branch (c is Z)",
     st.tuples(unknown(), known(INTS), known(INTS)),
     lambda t: abstract.branch(t[0], lambda: t[1], lambda: t[2], "r"),
-    lambda t: [t[0], t[1], t[2]])
+    lambda t: [t[0], t[1], t[2]],
+)
 
 V2 = still_violates(
     "vowels.i_integrate (inputs disagree)",
     disagreeing(),
     lambda ab: vowels.i_integrate(ab[0], ab[1], "m"),
-    lambda ab: [ab[0], ab[1]])
+    lambda ab: [ab[0], ab[1]],
+)
 
 
 @st.composite
@@ -366,7 +395,8 @@ V3 = still_violates(
     "eval_ast arithmetic past the float range",
     overflowing(),
     lambda t: ev(f"x {t[0]} y", {"x": t[1], "y": t[2]}),
-    lambda t: [t[1], t[2]])
+    lambda t: [t[1], t[2]],
+)
 
 
 def main() -> int:

@@ -36,7 +36,7 @@ tests/parser_corpus/61_defs.ezr	(prog (def double (x) (* x 2)) (def square (n) (
 tests/parser_corpus/62_recursive_def.ezr	(prog (def fact (n) (if (<= n 1) 1 (* n (call fact (- n 1))))))
 tests/parser_corpus/70_comments.ezr	(prog (let x 2 (* x x)))
 tests/parser_corpus/71_multiline_expr.ezr	(prog (if (> total 100) (- total 10) total))
-tests/parser_corpus/80_lex_bad_char.ezr	FAIL[lex/misbound]
+tests/parser_corpus/80_lex_illegal_char.ezr	FAIL[lex/misbound]
 tests/parser_corpus/81_unterminated_string.ezr	FAIL[lex/unbounded]
 tests/parser_corpus/82_missing_else.ezr	FAIL[parse/unbounded]
 tests/parser_corpus/83_missing_rparen.ezr	FAIL[parse/unbounded]

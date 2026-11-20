@@ -43,7 +43,6 @@ Codric Enterprise
 
 from __future__ import annotations
 
-import glob
 import json
 import os
 import shutil
@@ -51,7 +50,7 @@ import subprocess
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 CORPUS = ROOT / "tests" / "parser_corpus"
@@ -86,6 +85,7 @@ def ok(cond: bool, msg: str) -> None:
 
 # ── the corpus ────────────────────────────────────────────────────────
 
+
 def corpus_files() -> List[Path]:
     files = sorted(CORPUS.glob("*.ezr")) + sorted((ROOT / "examples").glob("*.ezr"))
     return files
@@ -96,6 +96,7 @@ def rel(p: Path) -> str:
 
 
 # ── witness 1: the forge's twenty pairs ───────────────────────────────
+
 
 class ForgeAnswer:
     def __init__(self, lex_canon: str, verdict: str, where: Optional[str]):
@@ -123,7 +124,9 @@ def forge_answers(src: str) -> Dict[str, ForgeAnswer]:
             continue
         if po.fail:
             f = po.fail
-            out[pair.name] = ForgeAnswer(lo.canon(), f"FAIL[parse/{f.defect}]", f"@{f.pos}L{f.line}")
+            out[pair.name] = ForgeAnswer(
+                lo.canon(), f"FAIL[parse/{f.defect}]", f"@{f.pos}L{f.line}"
+            )
         else:
             out[pair.name] = ForgeAnswer(lo.canon(), po.canon(), None)
     return out
@@ -131,21 +134,23 @@ def forge_answers(src: str) -> Dict[str, ForgeAnswer]:
 
 # ── witness 2: syntax.py, the parser ezrun actually runs ──────────────
 
+
 def _incumbent_sexp(n) -> str:
     S = syntax
     if isinstance(n, S.Num):
-        return _num(n.value)
+        return str(_num(n.value))
     if isinstance(n, S.Str):
         return f"(str {n.value!r})"
     if isinstance(n, S.Bool):
         return "true" if n.value else "false"
     if isinstance(n, S.Var):
-        return n.name
+        return str(n.name)
     if isinstance(n, S.BinOp):
         return f"({n.op} {_incumbent_sexp(n.left)} {_incumbent_sexp(n.right)})"
     if isinstance(n, S.If):
-        return (f"(if {_incumbent_sexp(n.cond)} {_incumbent_sexp(n.then)} "
-                f"{_incumbent_sexp(n.els)})")
+        return (
+            f"(if {_incumbent_sexp(n.cond)} {_incumbent_sexp(n.then)} " f"{_incumbent_sexp(n.els)})"
+        )
     if isinstance(n, S.Call):
         return f"(call {n.name}" + "".join(" " + _incumbent_sexp(a) for a in n.args) + ")"
     if isinstance(n, S.FnDef):
@@ -180,6 +185,7 @@ def incumbent_verdict(src: str) -> str:
 
 # ── witness 3: the Java runtime ───────────────────────────────────────
 
+
 def java_verdicts(files: List[Path]) -> Optional[Dict[str, str]]:
     if not shutil.which("javac") or not shutil.which("java"):
         return None
@@ -192,7 +198,9 @@ def java_verdicts(files: List[Path]) -> Optional[Dict[str, str]]:
     env.pop("JAVA_TOOL_OPTIONS", None)  # it prints a banner on stderr
     r = subprocess.run(
         ["java", "-cp", str(layer / "out"), "com.codric.ezr.AstDump"] + [str(f) for f in files],
-        capture_output=True, text=True, env=env,
+        capture_output=True,
+        text=True,
+        env=env,
     )
     if r.returncode != 0:
         ok(False, f"java: AstDump exited {r.returncode}\n{r.stderr[-800:]}")
@@ -206,6 +214,7 @@ def java_verdicts(files: List[Path]) -> Optional[Dict[str, str]]:
 
 # ── bookkeeping ───────────────────────────────────────────────────────
 
+
 def load_expected() -> Dict[str, str]:
     if not EXPECTED.exists():
         return {}
@@ -217,10 +226,18 @@ def load_expected() -> Dict[str, str]:
     return out
 
 
-def load_known() -> Dict[str, Dict[str, Dict[str, List[str]]]]:
+def load_known() -> Dict[str, Dict[str, Any]]:
+    """KNOWN_SPLITS.json lists each distinct split once, with every corpus
+    file that shows it; this turns that into file -> aspect -> groups."""
     if not KNOWN.exists():
         return {}
-    return json.loads(KNOWN.read_text()).get("splits", {})
+    out: Dict[str, Dict[str, Any]] = {}
+    for entry in json.loads(KNOWN.read_text()).get("splits", []):
+        for name in entry["files"]:
+            per_file = out.setdefault(name, {"why": []})
+            per_file[entry["aspect"]] = entry["groups"]
+            per_file["why"] = sorted(set(per_file["why"]) | set(entry["why"]))
+    return out
 
 
 def groups_of(answers: Dict[str, str]) -> Dict[str, List[str]]:
@@ -230,9 +247,45 @@ def groups_of(answers: Dict[str, str]) -> Dict[str, List[str]]:
     return g
 
 
+def _lexer_names() -> List[str]:
+    return sorted(forge.all_lexers())
+
+
+def compact(who: List[str]) -> List[str]:
+    """Witness names with every full row of lexers folded: the four pairs
+    "L1 x P2" .. "L4 x P2" become "* x P2". KNOWN_SPLITS.json stores the
+    folded form, so it records the groups, not twenty names per group."""
+    lexers = set(_lexer_names())
+    by_parser: Dict[str, set] = {}
+    rest = []
+    for w in who:
+        if " x " in w:
+            lx, px = w.split(" x ")
+            by_parser.setdefault(px, set()).add(lx)
+        else:
+            rest.append(w)
+    out = []
+    for px, lxs in by_parser.items():
+        if lxs == lexers:
+            out.append(f"* x {px}")
+        else:
+            out += [f"{lx} x {px}" for lx in lxs]
+    return sorted(out + rest)
+
+
+def expand(names: List[str]) -> List[str]:
+    """Inverse of compact."""
+    out: List[str] = []
+    for n in names:
+        if n.startswith("* x "):
+            out += [f"{lx} x {n[4:]}" for lx in _lexer_names()]
+        else:
+            out.append(n)
+    return sorted(out)
+
+
 def summarise(g: Dict[str, List[str]]) -> str:
-    return "; ".join(f"{ans} <- {len(who)}: {', '.join(who[:4])}{' ...' if len(who) > 4 else ''}"
-                     for ans, who in g.items())
+    return "; ".join(f"{ans} <- {len(who)}: {', '.join(compact(who))}" for ans, who in g.items())
 
 
 def passed_only_without(name: str, aspect: str) -> None:
@@ -240,20 +293,27 @@ def passed_only_without(name: str, aspect: str) -> None:
     ok(True, f"{name} [{aspect}]")
 
 
-def check_split(name: str, aspect: str, answers: Dict[str, str],
-                known: Dict[str, Dict[str, Dict[str, List[str]]]],
-                seen_known: set) -> None:
+def check_split(
+    name: str,
+    aspect: str,
+    answers: Dict[str, str],
+    known: Dict[str, Dict[str, Any]],
+    seen_known: set,
+) -> None:
     g = groups_of(answers)
     listed = known.get(name, {}).get(aspect)
     if listed is not None:
         # A witness that did not run this time (no javac) cannot be part
         # of the split it was recorded in.
-        listed = {ans: [w for w in who if w in answers] for ans, who in listed.items()}
+        listed = {ans: [w for w in expand(who) if w in answers] for ans, who in listed.items()}
         listed = {ans: who for ans, who in listed.items() if who}
         seen_known.add((name, aspect))
         same = {k: sorted(v) for k, v in g.items()} == {k: sorted(v) for k, v in listed.items()}
         if len(g) == 1 and len(listed) > 1:
-            ok(False, f"{name}: the known {aspect} split has healed -- remove it from KNOWN_SPLITS.json")
+            ok(
+                False,
+                f"{name}: the known {aspect} split has healed -- remove it from KNOWN_SPLITS.json",
+            )
         elif len(g) == 1:
             passed_only_without(name, aspect)
         else:
@@ -267,6 +327,7 @@ def check_split(name: str, aspect: str, answers: Dict[str, str],
 
 # ── main ──────────────────────────────────────────────────────────────
 
+
 def main() -> int:
     files = corpus_files()
     expected = load_expected()
@@ -275,8 +336,10 @@ def main() -> int:
     java = java_verdicts(files)
     unanimous: Dict[str, str] = {}
 
-    print(f"  corpus: {len(files)} programs; witnesses: 20 forge pairs, syntax.py, "
-          + ("Java" if java is not None else "Java SKIPPED (no javac)"))
+    print(
+        f"  corpus: {len(files)} programs; witnesses: 20 forge pairs, syntax.py, "
+        + ("Java" if java is not None else "Java SKIPPED (no javac)")
+    )
 
     for f in files:
         name = rel(f)
@@ -314,27 +377,37 @@ def main() -> int:
             ok(want is not None, f"{name}: no EXPECTED entry (run --write)")
             if want is not None:
                 bad = sorted(w for w, v in forge_verdicts.items() if v != want)
-                ok(not bad, f"{name}: {len(bad)} forge pair(s) differ from EXPECTED {want!r}: "
-                            f"{', '.join(bad[:5])}")
+                ok(
+                    not bad,
+                    f"{name}: {len(bad)} forge pair(s) differ from EXPECTED {want!r}: "
+                    f"{', '.join(bad[:5])}",
+                )
         if VERBOSE:
             print(f"    {name:48} {core}")
 
-    for (name, aspect) in [(n, a) for n, aspects in known.items() for a in aspects if a != "why"]:
-        ok((name, aspect) in seen_known, f"KNOWN_SPLITS.json lists {name} [{aspect}], which is not in the corpus")
+    for name, aspect in [(n, a) for n, aspects in known.items() for a in aspects if a != "why"]:
+        ok(
+            (name, aspect) in seen_known,
+            f"KNOWN_SPLITS.json lists {name} [{aspect}], which is not in the corpus",
+        )
 
     if WRITE:
         split = [rel(f) for f in files if rel(f) not in unanimous]
         if split:
             print("  --write refused: the forge pairs are split on " + ", ".join(split))
             return 1
-        lines = ["# file<TAB>canonical verdict -- written by parser_agreement.py --write",
-                 "# from a run where all twenty forge pairs agreed. Edit only by re-running that."]
+        lines = [
+            "# file<TAB>canonical verdict -- written by parser_agreement.py --write",
+            "# from a run where all twenty forge pairs agreed. Edit only by re-running that.",
+        ]
         lines += [f"{n}\t{v}" for n, v in sorted(unanimous.items())]
         EXPECTED.write_text("\n".join(lines) + "\n")
         print(f"  wrote {EXPECTED.relative_to(ROOT)} ({len(unanimous)} entries)")
 
     if findings:
-        print(f"\n  Known splits ({len(findings)}), listed in tests/parser_corpus/KNOWN_SPLITS.json:")
+        print(
+            f"\n  Known splits ({len(findings)}), listed in tests/parser_corpus/KNOWN_SPLITS.json:"
+        )
         for line in findings:
             print(f"    ! {line}")
 

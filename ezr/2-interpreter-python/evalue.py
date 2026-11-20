@@ -328,10 +328,11 @@ def serialise(v: EValue) -> bytes:
         raise TypeError(f"serialise expects an EValue, got {type(v).__name__}")
     tag = v.ev_tag
     if tag == EvType.UNKNOWN:
+        span = _span_of(v)
         src, reason = _unknown_wire_parts(v)
         return (bytes([EvType.UNKNOWN]) + struct.pack("<H", len(reason)) + reason
                 + bytes([len(src)]) + src
-                + struct.pack("<ii", v.ev_span.line, v.ev_span.col))
+                + struct.pack("<ii", span.line, span.col))
     if tag == EvType.VOID:
         return bytes([EvType.VOID])
     if tag == EvType.BOOL:
@@ -368,10 +369,18 @@ def _cut_utf8(b: bytes, limit: int) -> bytes:
     return b[:limit].decode("utf-8", errors="ignore").encode("utf-8")
 
 
-def _unknown_wire_parts(v: EValue) -> tuple:
+def _span_of(v: EValue) -> Span:
+    """An UNKNOWN's span. __post_init__ guarantees one; this says so to
+    the type checker instead of trusting it."""
+    if v.ev_span is None:
+        raise NullAtBoundary("an UNKNOWN without a span reached the wire")
+    return v.ev_span
+
+
+def _unknown_wire_parts(v: EValue) -> "tuple[bytes, bytes]":
     """(source, reason) as bytes, cut so `source NUL reason NUL` fits the
     192-byte inline text the C side stores them in."""
-    src = _cut_utf8(v.ev_span.source.encode("utf-8"), EV_SPAN_SOURCE_MAX)
+    src = _cut_utf8(_span_of(v).source.encode("utf-8"), EV_SPAN_SOURCE_MAX)
     reason = _cut_utf8(v.ev_reason.encode("utf-8"), EV_INLINE_MAX - len(src) - 2)
     return src, reason
 

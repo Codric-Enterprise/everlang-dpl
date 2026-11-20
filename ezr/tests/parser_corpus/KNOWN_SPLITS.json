@@ -1,5 +1,5 @@
 {
-  "note": "Every disagreement parser_agreement.py has found and not yet resolved, with the exact groups observed. The suite fails if a split appears that is not here, or one listed here heals or changes shape. Fix the language or the parser, then delete the entry; do not edit groups by hand to make a run pass.",
+  "note": "Every disagreement parser_agreement.py has found and not yet resolved, with the exact groups observed. Each distinct split is listed once, with every corpus file that shows it; \"* x P\" means all four lexers paired with parser P. The suite fails if a split appears that is not here, or one listed here heals or changes shape. Fix the language or the parser, then delete the entry; do not edit groups by hand to make a run pass.",
   "reasons": {
     "java-defect": "Java classifies a legal token in the wrong place as misbound; the forge, and syntax.py, call it unbounded. Doctrine (PIPELINE.md) only rules on running out of input (unbounded) and an illegal character (misbound); this case is unratified.",
     "earley-where": "On input that ends too soon, P1-P3 refuse at the end of input; P4 (Earley) and P5 (generated from GRAMMAR.ebnf) refuse at the last token. Same verdict, different place. The forge's own laws only check that a refusal points inside the text, so it never saw this.",
@@ -7,439 +7,109 @@
     "superset": "syntax.py accepts the v4.10 statement language on top of the core (let/ever statements, not, mixed defs and expressions) and repairs punctuation (Recovery). Expected by design; listed so it stays visible.",
     "empty": "syntax.py accepts an empty program as an empty Program; every other witness refuses it as unbounded."
   },
-  "splits": {
-    "tests/parser_corpus/24_cmp_chain_refused.ezr": {
-      "verdict": {
-        "FAIL[parse/misbound]": [
-          "Java"
-        ],
-        "FAIL[parse/unbounded]": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated",
-          "syntax.py"
-        ]
+  "splits": [
+    {
+      "files": ["tests/parser_corpus/24_cmp_chain_refused.ezr", "tests/parser_corpus/32_if_as_operand.ezr", "tests/parser_corpus/85_two_expressions.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated", "syntax.py"]
       },
-      "why": [
-        "java-defect"
-      ]
+      "why": ["java-defect"]
     },
-    "tests/parser_corpus/32_if_as_operand.ezr": {
-      "verdict": {
-        "FAIL[parse/misbound]": [
-          "Java"
-        ],
-        "FAIL[parse/unbounded]": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated",
-          "syntax.py"
-        ]
+    {
+      "files": ["tests/parser_corpus/81_unterminated_string.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[lex/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated", "Java"],
+        "FAIL[lex/misbound]": ["syntax.py"]
       },
-      "why": [
-        "java-defect"
-      ]
+      "why": ["unterminated"]
     },
-    "tests/parser_corpus/81_unterminated_string.ezr": {
-      "verdict": {
-        "FAIL[lex/unbounded]": [
-          "Java",
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ],
-        "FAIL[lex/misbound]": [
-          "syntax.py"
-        ]
+    {
+      "files": ["tests/parser_corpus/82_missing_else.ezr"],
+      "aspect": "where",
+      "groups": {
+        "@11L1": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting"],
+        "@10L1": ["* x P4-earley", "* x P5-generated"]
       },
-      "why": [
-        "unterminated"
-      ]
+      "why": ["earley-where"]
     },
-    "tests/parser_corpus/82_missing_else.ezr": {
-      "where": {
-        "@11L1": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting"
-        ],
-        "@10L1": [
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ]
+    {
+      "files": ["tests/parser_corpus/83_missing_rparen.ezr"],
+      "aspect": "where",
+      "groups": {
+        "@6L1": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting"],
+        "@5L1": ["* x P4-earley", "* x P5-generated"]
       },
-      "why": [
-        "earley-where"
-      ]
+      "why": ["earley-where"]
     },
-    "tests/parser_corpus/83_missing_rparen.ezr": {
-      "where": {
-        "@6L1": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting"
-        ],
-        "@5L1": [
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ]
+    {
+      "files": ["tests/parser_corpus/84_trailing_operator.ezr"],
+      "aspect": "where",
+      "groups": {
+        "@3L1": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting"],
+        "@2L1": ["* x P4-earley", "* x P5-generated"]
       },
-      "why": [
-        "earley-where"
-      ]
+      "why": ["earley-where"]
     },
-    "tests/parser_corpus/84_trailing_operator.ezr": {
-      "where": {
-        "@3L1": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting"
-        ],
-        "@2L1": [
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ]
+    {
+      "files": ["tests/parser_corpus/86_def_then_expression.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated"],
+        "(prog (def f (x) x) (call f 1) (beyond-core mixed))": ["syntax.py"]
       },
-      "why": [
-        "earley-where"
-      ]
+      "why": ["java-defect", "superset"]
     },
-    "tests/parser_corpus/85_two_expressions.ezr": {
-      "verdict": {
-        "FAIL[parse/misbound]": [
-          "Java"
-        ],
-        "FAIL[parse/unbounded]": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated",
-          "syntax.py"
-        ]
+    {
+      "files": ["tests/parser_corpus/87_trailing_comma.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated"],
+        "(prog (call f 1))": ["syntax.py"]
       },
-      "why": [
-        "java-defect"
-      ]
+      "why": ["java-defect", "superset"]
     },
-    "tests/parser_corpus/86_def_then_expression.ezr": {
-      "verdict": {
-        "FAIL[parse/misbound]": [
-          "Java"
-        ],
-        "FAIL[parse/unbounded]": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ],
-        "(prog (def f (x) x) (call f 1) (beyond-core mixed))": [
-          "syntax.py"
-        ]
+    {
+      "files": ["tests/parser_corpus/88_not_is_not_core.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated"],
+        "(prog (beyond-core UnaryOp))": ["syntax.py"]
       },
-      "why": [
-        "java-defect",
-        "superset"
-      ]
+      "why": ["java-defect", "superset"]
     },
-    "tests/parser_corpus/87_trailing_comma.ezr": {
-      "verdict": {
-        "FAIL[parse/misbound]": [
-          "Java"
-        ],
-        "FAIL[parse/unbounded]": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ],
-        "(prog (call f 1))": [
-          "syntax.py"
-        ]
+    {
+      "files": ["tests/parser_corpus/89_empty_program.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated", "Java"],
+        "(prog )": ["syntax.py"]
       },
-      "why": [
-        "java-defect",
-        "superset"
-      ]
+      "why": ["empty"]
     },
-    "tests/parser_corpus/88_not_is_not_core.ezr": {
-      "verdict": {
-        "FAIL[parse/misbound]": [
-          "Java"
-        ],
-        "FAIL[parse/unbounded]": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ],
-        "(prog (beyond-core UnaryOp))": [
-          "syntax.py"
-        ]
+    {
+      "files": ["tests/parser_corpus/90_def_missing_body.ezr"],
+      "aspect": "where",
+      "groups": {
+        "@10L1": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting"],
+        "@9L1": ["* x P4-earley", "* x P5-generated"]
       },
-      "why": [
-        "java-defect",
-        "superset"
-      ]
+      "why": ["earley-where"]
     },
-    "tests/parser_corpus/89_empty_program.ezr": {
-      "verdict": {
-        "FAIL[parse/unbounded]": [
-          "Java",
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ],
-        "(prog )": [
-          "syntax.py"
-        ]
+    {
+      "files": ["tests/parser_corpus/91_let_missing_in.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated"],
+        "(prog (beyond-core Let) x (beyond-core mixed))": ["syntax.py"]
       },
-      "why": [
-        "empty"
-      ]
-    },
-    "tests/parser_corpus/90_def_missing_body.ezr": {
-      "where": {
-        "@10L1": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting"
-        ],
-        "@9L1": [
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ]
-      },
-      "why": [
-        "earley-where"
-      ]
-    },
-    "tests/parser_corpus/91_let_missing_in.ezr": {
-      "verdict": {
-        "FAIL[parse/misbound]": [
-          "Java"
-        ],
-        "FAIL[parse/unbounded]": [
-          "L1-regex-master x P1-recdescent",
-          "L1-regex-master x P2-pratt",
-          "L1-regex-master x P3-shunting",
-          "L1-regex-master x P4-earley",
-          "L1-regex-master x P5-generated",
-          "L2-handrolled x P1-recdescent",
-          "L2-handrolled x P2-pratt",
-          "L2-handrolled x P3-shunting",
-          "L2-handrolled x P4-earley",
-          "L2-handrolled x P5-generated",
-          "L3-dfa x P1-recdescent",
-          "L3-dfa x P2-pratt",
-          "L3-dfa x P3-shunting",
-          "L3-dfa x P4-earley",
-          "L3-dfa x P5-generated",
-          "L4-trie x P1-recdescent",
-          "L4-trie x P2-pratt",
-          "L4-trie x P3-shunting",
-          "L4-trie x P4-earley",
-          "L4-trie x P5-generated"
-        ],
-        "(prog (beyond-core Let) x (beyond-core mixed))": [
-          "syntax.py"
-        ]
-      },
-      "why": [
-        "java-defect",
-        "superset"
-      ]
+      "why": ["java-defect", "superset"]
     }
-  }
+  ]
 }
