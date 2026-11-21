@@ -29,30 +29,52 @@ from enum import IntEnum
 from typing import Any, Dict, List, Optional, Tuple
 
 # ── constants, identical to 0-atom-c/tapestry.h ──
-E_ZERO               = 0
-E_CERTAIN            = 256
-E_EXECUTE_FLOOR      = 128
-E_PI_WIDTH_WARN      = 81
+E_ZERO = 0
+E_CERTAIN = 256
+E_EXECUTE_FLOOR = 128
+E_PI_WIDTH_WARN = 81
 E_PI_WIDTH_ENUMERATE = 25
-E_EMULATE_CEILING    = 3
-E_ASCEND_POINTS      = 3
-E_PHI                = 1.6180339887
-E_INTAKE             = 120     # what a literal is worth before evidence
+E_EMULATE_CEILING = 3
+E_ASCEND_POINTS = 3
+E_PHI = 1.6180339887
+E_INTAKE = 120  # what a literal is worth before evidence
 
 
 class State(IntEnum):
-    Z = 0; CONFIDENT = 1; CERTAIN = 2; EQUIV = 3; EXPRESS = 4
-    EMULATING = 5; EVOLVED = 6; ANCHORED = 7; ABSENT = 8; ERROR = 9
+    Z = 0
+    CONFIDENT = 1
+    CERTAIN = 2
+    EQUIV = 3
+    EXPRESS = 4
+    EMULATING = 5
+    EVOLVED = 6
+    ANCHORED = 7
+    ABSENT = 8
+    ERROR = 9
 
 
 class Defect(IntEnum):
-    NONE = 0; UNBOUND = 1; MISBOUND = 2; UNBOUNDED = 3
-    OVERBOUND = 4; ORPHANED = 5
+    NONE = 0
+    UNBOUND = 1
+    MISBOUND = 2
+    UNBOUNDED = 3
+    OVERBOUND = 4
+    ORPHANED = 5
 
 
 class Lang(IntEnum):
-    C = 0; CPP = 1; PYTHON = 2; RUBY = 3; SQL = 4; JAVA = 5; HTML = 6
-    RUST = 7; GO = 8; TS = 9; SWIFT = 10; EVER = 11
+    C = 0
+    CPP = 1
+    PYTHON = 2
+    RUBY = 3
+    SQL = 4
+    JAVA = 5
+    HTML = 6
+    RUST = 7
+    GO = 8
+    TS = 9
+    SWIFT = 10
+    EVER = 11
 
 
 DEFECT_NAME = {d: d.name.lower() for d in Defect}
@@ -62,9 +84,11 @@ DEFECT_NAME = {d: d.name.lower() for d in Defect}
 # The thread
 # ═════════════════════════════════════════════
 
+
 @dataclass
 class E:
     """A binding: a name, the thing it holds, and how much it is trusted."""
+
     ident: str = ""
     value: Any = None
     state: State = State.Z
@@ -105,40 +129,64 @@ class E:
 
     def pi_status(self) -> str:
         w = self.width
-        if w > E_PI_WIDTH_WARN:      return "APPROACHING_Z"
-        if w > E_PI_WIDTH_ENUMERATE: return "ENUMERATE"
+        if w > E_PI_WIDTH_WARN:
+            return "APPROACHING_Z"
+        if w > E_PI_WIDTH_ENUMERATE:
+            return "ENUMERATE"
         return "ACCEPTABLE"
 
     def type_name(self) -> str:
         v = self.value
-        if v is None:            return "void"
-        if isinstance(v, bool):  return "bool"
-        if isinstance(v, int):   return "int"
-        if isinstance(v, float): return "real"
-        if isinstance(v, str):   return "text"
-        if isinstance(v, list):  return "list"
+        if v is None:
+            return "void"
+        if isinstance(v, bool):
+            return "bool"
+        if isinstance(v, int):
+            return "int"
+        if isinstance(v, float):
+            return "real"
+        if isinstance(v, str):
+            return "text"
+        if isinstance(v, list):
+            return "list"
         return "foreign"
 
     def serialize(self) -> str:
-        return "|".join(str(x) for x in (
-            int(self.state), self.type_name(), int(self.lang),
-            int(self.defect), self.confidence, self.lo, self.hi,
-            self.error_distance, self.generation, self.ascend_points,
-            self.anchor_id, -1, self.born_ms,
-            self.ident, self.value, self.reason))
+        return "|".join(
+            str(x)
+            for x in (
+                int(self.state),
+                self.type_name(),
+                int(self.lang),
+                int(self.defect),
+                self.confidence,
+                self.lo,
+                self.hi,
+                self.error_distance,
+                self.generation,
+                self.ascend_points,
+                self.anchor_id,
+                -1,
+                self.born_ms,
+                self.ident,
+                self.value,
+                self.reason,
+            )
+        )
 
     def __repr__(self) -> str:
         mark = "\u2693" if self.is_anchored else ""
         if self.is_z:
             return f"E<Z>({self.ident} \u2014 {self.reason})"
-        return (f"E<{self.state.name}>{mark}({self.ident} = {self.value!r} "
-                f"@ {self.confidence}/256)")
+        return (
+            f"E<{self.state.name}>{mark}({self.ident} = {self.value!r} " f"@ {self.confidence}/256)"
+        )
 
 
 # ── constructors ──
 
-def e_z(ident: str, reason: str = "unverified",
-        defect: Defect = Defect.UNBOUND) -> E:
+
+def e_z(ident: str, reason: str = "unverified", defect: Defect = Defect.UNBOUND) -> E:
     return E(ident=ident, state=State.Z, defect=defect, reason=reason)
 
 
@@ -146,18 +194,31 @@ def e_val(ident: str, value: Any, conf: int, lang: Lang = Lang.EVER) -> E:
     if conf <= E_ZERO:
         return e_z(ident, "confidence collapsed to zero")
     if conf >= E_CERTAIN:
-        return E(ident=ident, value=value, state=State.CERTAIN,
-                 confidence=E_CERTAIN, lo=E_CERTAIN, hi=E_CERTAIN, lang=lang)
-    return E(ident=ident, value=value, state=State.CONFIDENT,
-             confidence=conf, lo=conf, hi=conf, lang=lang)
+        return E(
+            ident=ident,
+            value=value,
+            state=State.CERTAIN,
+            confidence=E_CERTAIN,
+            lo=E_CERTAIN,
+            hi=E_CERTAIN,
+            lang=lang,
+        )
+    return E(
+        ident=ident,
+        value=value,
+        state=State.CONFIDENT,
+        confidence=conf,
+        lo=conf,
+        hi=conf,
+        lang=lang,
+    )
 
 
 def e_equiv(ident: str, lo: int, hi: int, lang: Lang = Lang.EVER) -> E:
     if lo > hi:
         lo, hi = hi, lo
     mid = (lo + hi) // 2
-    return E(ident=ident, value=mid, state=State.EQUIV,
-             confidence=mid, lo=lo, hi=hi, lang=lang)
+    return E(ident=ident, value=mid, state=State.EQUIV, confidence=mid, lo=lo, hi=hi, lang=lang)
 
 
 # ═════════════════════════════════════════════
@@ -174,15 +235,14 @@ def a_any(ident: str, literal: str, from_lang: Lang = Lang.EVER) -> E:
         return e_z(ident, "no literal to lift")
 
     if s in NOTHING_WORDS:
-        return e_z(ident, f"{from_lang.name} expressed nothing",
-                   Defect.UNBOUND)
+        return e_z(ident, f"{from_lang.name} expressed nothing", Defect.UNBOUND)
 
     if s in ("true", "True", "TRUE"):
         return e_val(ident, True, E_INTAKE, from_lang)
     if s in ("false", "False", "FALSE"):
         return e_val(ident, False, E_INTAKE, from_lang)
 
-    if len(s) >= 2 and s[0] in "\"'" :
+    if len(s) >= 2 and s[0] in "\"'":
         if s[-1] == s[0]:
             return e_val(ident, s[1:-1], E_INTAKE, from_lang)
         return e_z(ident, "unterminated string literal", Defect.UNBOUNDED)
@@ -210,8 +270,7 @@ def a_assimilate(p: E, to: Lang) -> E:
     if p.is_z:
         return e_z(p.ident, "Z does not translate", p.defect)
     if p.state == State.ERROR:
-        return e_z(p.ident, "misbound thread does not translate",
-                   Defect.MISBOUND)
+        return e_z(p.ident, "misbound thread does not translate", Defect.MISBOUND)
     if p.lang == to:
         return p
 
@@ -226,11 +285,9 @@ def a_assimilate(p: E, to: Lang) -> E:
         # number would disagree.
         if q.state == State.CERTAIN:
             q.state = State.CONFIDENT
-        q.reason = (f"assimilated {p.lang.name} to {to.name}, "
-                    f"unanchored, -1 confidence")
+        q.reason = f"assimilated {p.lang.name} to {to.name}, " f"unanchored, -1 confidence"
     else:
-        q.reason = (f"assimilated {p.lang.name} to {to.name}, "
-                    f"anchor {p.anchor_id} held")
+        q.reason = f"assimilated {p.lang.name} to {to.name}, " f"anchor {p.anchor_id} held"
     return q
 
 
@@ -240,8 +297,7 @@ _anchor_seq = [1000]
 def a_anchor(p: E, anchor_id: Optional[int] = None) -> E:
     """ANCHOR — pin an identity that survives every translation."""
     if not p.is_cleared:
-        return e_z(p.ident, "cannot anchor an uncleared binding",
-                   p.defect or Defect.UNBOUND)
+        return e_z(p.ident, "cannot anchor an uncleared binding", p.defect or Defect.UNBOUND)
     if anchor_id is None:
         _anchor_seq[0] += 1
         anchor_id = _anchor_seq[0]
@@ -292,8 +348,10 @@ def a_ascend(p: E, evidence: E) -> E:
     q.ascend_points = 0
     q.generation = p.generation + 1
     q.state = State.CERTAIN if q.confidence >= E_CERTAIN else State.EVOLVED
-    q.reason = (f"ascended on {E_ASCEND_POINTS} aligned points to "
-                f"{q.confidence}, generation {q.generation}")
+    q.reason = (
+        f"ascended on {E_ASCEND_POINTS} aligned points to "
+        f"{q.confidence}, generation {q.generation}"
+    )
     return q
 
 
@@ -312,14 +370,12 @@ def a_autodidact(history: List[E], about: str) -> E:
     if len(history) < E_ASCEND_POINTS:
         return e_z(about, "history too short to derive a rule")
 
-    defects = [h.defect for h in history if not h.is_cleared
-               and h.defect != Defect.NONE]
+    defects = [h.defect for h in history if not h.is_cleared and h.defect != Defect.NONE]
     if defects:
         common = max(set(defects), key=defects.count)
         if defects.count(common) >= E_ASCEND_POINTS:
             r = e_val(about, DEFECT_NAME[common], 180)
-            r.reason = (f"derived: {DEFECT_NAME[common]} recurs "
-                        f"{defects.count(common)} times")
+            r.reason = f"derived: {DEFECT_NAME[common]} recurs " f"{defects.count(common)} times"
             return r
 
     cleared = [h for h in history if h.is_cleared]
@@ -329,19 +385,18 @@ def a_autodidact(history: List[E], about: str) -> E:
     confs = [h.confidence for h in cleared]
     mean, spread = sum(confs) // len(confs), max(confs) - min(confs)
     if spread > E_PI_WIDTH_WARN:
-        return e_z(about, "history too scattered to derive a rule",
-                   Defect.UNBOUNDED)
+        return e_z(about, "history too scattered to derive a rule", Defect.UNBOUNDED)
 
     rule = e_val(about, mean, 200 if spread <= E_PI_WIDTH_ENUMERATE else 150)
     rule.lo, rule.hi = min(confs), max(confs)
-    rule.reason = (f"derived from {len(cleared)} observations, "
-                   f"mean {mean}, spread {spread}")
+    rule.reason = f"derived from {len(cleared)} observations, " f"mean {mean}, spread {spread}"
     return rule
 
 
 # ═════════════════════════════════════════════
 # Arithmetic on threads — confidence propagates
 # ═════════════════════════════════════════════
+
 
 def combine(a: E, b: E, op: str, ident: str) -> E:
     """Z-contagion is absolute: any Z operand yields Z.
@@ -355,9 +410,12 @@ def combine(a: E, b: E, op: str, ident: str) -> E:
         return e_z(ident, f"operand {b.ident} is Z", b.defect)
 
     try:
-        if   op == "+": v = a.value + b.value
-        elif op == "-": v = a.value - b.value
-        elif op == "*": v = a.value * b.value
+        if op == "+":
+            v = a.value + b.value
+        elif op == "-":
+            v = a.value - b.value
+        elif op == "*":
+            v = a.value * b.value
         elif op == "/":
             if b.value == 0:
                 return e_z(ident, "division by zero", Defect.MISBOUND)
@@ -365,9 +423,7 @@ def combine(a: E, b: E, op: str, ident: str) -> E:
         else:
             return e_z(ident, f"unknown operator {op}", Defect.MISBOUND)
     except TypeError:
-        return e_z(ident,
-                   f"cannot {op} {a.type_name()} with {b.type_name()}",
-                   Defect.MISBOUND)
+        return e_z(ident, f"cannot {op} {a.type_name()} with {b.type_name()}", Defect.MISBOUND)
 
     conf = min(a.confidence, b.confidence)
     r = e_val(ident, v, conf)
@@ -378,6 +434,7 @@ def combine(a: E, b: E, op: str, ident: str) -> E:
 # ═════════════════════════════════════════════
 # The interpreter
 # ═════════════════════════════════════════════
+
 
 class EverError(Exception):
     pass
@@ -417,14 +474,14 @@ class Ever:
 
     def _exec(self, line: str, lineno: int) -> None:
         # anchor NAME = EXPR
-        m = re.match(r'^anchor\s+(\w+)\s*=\s*(.+)$', line)
+        m = re.match(r"^anchor\s+(\w+)\s*=\s*(.+)$", line)
         if m:
             p = self._eval(m.group(2), m.group(1))
             self._record(a_anchor(p) if p.is_cleared else p)
             return
 
         # let / ever NAME = EXPR
-        m = re.match(r'^(?:let|ever)\s+(\w+)\s*=\s*(.+)$', line)
+        m = re.match(r"^(?:let|ever)\s+(\w+)\s*=\s*(.+)$", line)
         if m:
             self._record(self._eval(m.group(2), m.group(1)))
             return
@@ -436,13 +493,13 @@ class Ever:
             return
 
         # equiv NAME = LO..HI
-        m = re.match(r'^equiv\s+(\w+)\s*=\s*(-?\d+)\s*\.\.\s*(-?\d+)$', line)
+        m = re.match(r"^equiv\s+(\w+)\s*=\s*(-?\d+)\s*\.\.\s*(-?\d+)$", line)
         if m:
             self._record(e_equiv(m.group(1), int(m.group(2)), int(m.group(3))))
             return
 
         # ascend NAME by N
-        m = re.match(r'^ascend\s+(\w+)\s+by\s+(-?\d+)$', line)
+        m = re.match(r"^ascend\s+(\w+)\s+by\s+(-?\d+)$", line)
         if m:
             name = m.group(1)
             entry = self.threads.get(name)
@@ -453,7 +510,7 @@ class Ever:
             return
 
         # assimilate NAME to LANG
-        m = re.match(r'^assimilate\s+(\w+)\s+to\s+(\w+)$', line)
+        m = re.match(r"^assimilate\s+(\w+)\s+to\s+(\w+)$", line)
         if m:
             name, lang = m.group(1), m.group(2).upper()
             entry = self.threads.get(name)
@@ -465,22 +522,19 @@ class Ever:
             return
 
         # expect NAME >= N
-        m = re.match(r'^expect\s+(\w+)\s*>=\s*(\d+)$', line)
+        m = re.match(r"^expect\s+(\w+)\s*>=\s*(\d+)$", line)
         if m:
             name, floor = m.group(1), int(m.group(2))
             p = self.threads.get(name, e_z(m.group(1), "never bound"))
             if p.confidence < floor:
                 self.blocked += 1
-                blocked = e_z(name,
-                              f"expected >= {floor}, had {p.confidence}")
+                blocked = e_z(name, f"expected >= {floor}, had {p.confidence}")
                 self._record(blocked)
-                self.output.append(
-                    f"  BLOCKED {name}: expected >= {floor}, "
-                    f"had {p.confidence}")
+                self.output.append(f"  BLOCKED {name}: expected >= {floor}, " f"had {p.confidence}")
             return
 
         # learn NAME
-        m = re.match(r'^learn\s+(\w+)$', line)
+        m = re.match(r"^learn\s+(\w+)$", line)
         if m:
             name = m.group(1)
             rule = a_autodidact(self.history.get(name, []), f"{name}_rule")
@@ -489,7 +543,7 @@ class Ever:
             return
 
         # show NAME
-        m = re.match(r'^show\s+(\w+)$', line)
+        m = re.match(r"^show\s+(\w+)$", line)
         if m:
             name = m.group(1)
             entry = self.threads.get(name)
@@ -501,12 +555,14 @@ class Ever:
                 self.blocked += 1
                 self.output.append(
                     f"  {name} withheld: {entry.confidence}/256 is below the "
-                    f"execute floor of {E_EXECUTE_FLOOR}")
+                    f"execute floor of {E_EXECUTE_FLOOR}"
+                )
             else:
                 mark = " \u2693" if entry.is_anchored else ""
                 self.output.append(
                     f"  {name} = {entry.value!r}  [{entry.confidence}/256 "
-                    f"{entry.state.name}{mark}]")
+                    f"{entry.state.name}{mark}]"
+                )
             return
 
         raise EverError(f"cannot parse: {line}")
@@ -515,7 +571,7 @@ class Ever:
 
     def _eval(self, expr: str, ident: str) -> E:
         expr = expr.strip()
-        m = re.match(r'^(.+?)\s*([-+*/])\s*(.+)$', expr)
+        m = re.match(r"^(.+?)\s*([-+*/])\s*(.+)$", expr)
         if m and not (expr[0] in "\"'"):
             a = self._atom(m.group(1).strip(), f"{ident}_l")
             b = self._atom(m.group(3).strip(), f"{ident}_r")
@@ -527,9 +583,9 @@ class Ever:
         # Ever source carries no uncertainty about what it is; the author
         # wrote it. Uncertainty belongs to data from outside and to
         # whether functions are correct.
-        if re.fullmatch(r'-?\d+', tok):
+        if re.fullmatch(r"-?\d+", tok):
             return e_val(ident, int(tok), E_CERTAIN)
-        if re.fullmatch(r'-?\d*\.\d+', tok):
+        if re.fullmatch(r"-?\d*\.\d+", tok):
             return e_val(ident, float(tok), E_CERTAIN)
         if len(tok) >= 2 and tok[0] in "\"'" and tok[-1] == tok[0]:
             return e_val(ident, tok[1:-1], E_CERTAIN)
@@ -558,8 +614,10 @@ class Ever:
                 continue
             out.append(f"    {p}")
         out.append("")
-        out.append(f"  threads {len(self.threads)}   "
-                   f"archived {len(self.archive)}   blocked {self.blocked}")
+        out.append(
+            f"  threads {len(self.threads)}   "
+            f"archived {len(self.archive)}   blocked {self.blocked}"
+        )
         return "\n".join(out)
 
 
@@ -567,7 +625,7 @@ class Ever:
 # CLI
 # ═════════════════════════════════════════════
 
-DEMO = '''
+DEMO = """
 # Ever — a language where every value carries how much it is trusted
 
 anchor total = 500              # pinned; survives translation intact
@@ -598,7 +656,7 @@ show   severity
 
 expect tax >= 200
 learn  tax
-'''
+"""
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

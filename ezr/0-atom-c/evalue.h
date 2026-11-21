@@ -51,28 +51,29 @@
  * Codric Enterprise · Ricky (Dreid) · 2026
  */
 
-#ifndef EVALUE_H
-#define EVALUE_H
+#ifndef EZR_0_ATOM_C_EVALUE_H_
+#define EZR_0_ATOM_C_EVALUE_H_
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
-#include "tapestry.h"   /* E_TEXT_MAX, E_PACK_BEGIN/END, E_LAYOUT_ASSERT */
+
+#include "tapestry.h" /* E_TEXT_MAX, E_PACK_BEGIN/END, E_LAYOUT_ASSERT */
 
 /* ─────────────────────────────────────────────
  * The type tag
  * ───────────────────────────────────────────── */
 
 typedef enum {
-    EV_VOID   = 0,   /* no value, but explicit (≠ Z)                    */
-    EV_BOOL   = 1,   /* int32_t 0 or 1                                  */
-    EV_INT    = 2,   /* int64_t                                          */
-    EV_REAL   = 3,   /* double                                           */
-    EV_TEXT   = 4,   /* char[E_TEXT_MAX], inline, NUL-terminated         */
-    EV_BLOB   = 5,   /* pool_ref → ev_blob                              */
-    EV_LIST   = 6,   /* pool_ref → ev_list                              */
-    EV_RECORD = 7,   /* pool_ref → ev_record                            */
-    EV_UNKNOWN = 8,  /* not known: body.span + text "source\0reason\0"  */
+  EV_VOID = 0,    /* no value, but explicit (≠ Z)                    */
+  EV_BOOL = 1,    /* int32_t 0 or 1                                  */
+  EV_INT = 2,     /* int64_t                                          */
+  EV_REAL = 3,    /* double                                           */
+  EV_TEXT = 4,    /* char[E_TEXT_MAX], inline, NUL-terminated         */
+  EV_BLOB = 5,    /* pool_ref → ev_blob                              */
+  EV_LIST = 6,    /* pool_ref → ev_list                              */
+  EV_RECORD = 7,  /* pool_ref → ev_record                            */
+  EV_UNKNOWN = 8, /* not known: body.span + text "source\0reason\0"  */
 } ev_type;
 
 /* No null crosses this type. A NULL pointer, a foreign `null` literal or
@@ -93,29 +94,32 @@ const char *ev_type_name(ev_type t);
  * 208 bytes. The ABI is preserved.
  * ───────────────────────────────────────────── */
 
-#define EV_INLINE_MAX  E_TEXT_MAX   /* 192 bytes, same as before       */
+#define EV_INLINE_MAX E_TEXT_MAX /* 192 bytes, same as before       */
 
 E_PACK_BEGIN
 typedef struct {
-    int32_t  tag;        /* ev_type, stored as int32_t     @  0 (4) */
-    int32_t  _pad;       /* explicit padding                @  4 (4) */
-    union {
-        int32_t  as_bool;  /* EV_BOOL                        @  8     */
-        int64_t  as_int;   /* EV_INT                         @  8     */
-        double   as_real;  /* EV_REAL                        @  8     */
-        int32_t  pool_ref; /* EV_BLOB / EV_LIST / EV_RECORD  @  8     */
-        struct { int32_t line; int32_t col; } span; /* EV_UNKNOWN @ 8 */
-    } body;              /*                                 @  8 (8) */
-    char     text[EV_INLINE_MAX]; /* EV_TEXT inline         @ 16 (192)*/
-} EValue;                /*                                 total 208 */
+  int32_t tag;  /* ev_type, stored as int32_t     @  0 (4) */
+  int32_t _pad; /* explicit padding                @  4 (4) */
+  union {
+    int32_t as_bool;  /* EV_BOOL                        @  8     */
+    int64_t as_int;   /* EV_INT                         @  8     */
+    double as_real;   /* EV_REAL                        @  8     */
+    int32_t pool_ref; /* EV_BLOB / EV_LIST / EV_RECORD  @  8     */
+    struct {
+      int32_t line;
+      int32_t col;
+    } span;                 /* EV_UNKNOWN @ 8 */
+  } body;                   /*                                 @  8 (8) */
+  char text[EV_INLINE_MAX]; /* EV_TEXT inline         @ 16 (192)*/
+} EValue;                   /*                                 total 208 */
 E_PACK_END
 
 /* Layout assertions for EValue itself */
 #define EV_SIZEOF 208
-typedef char ev_check_size    [(sizeof(EValue)           == EV_SIZEOF) ? 1 : -1];
-typedef char ev_check_tag     [(offsetof(EValue, tag)    ==  0)        ? 1 : -1];
-typedef char ev_check_body    [(offsetof(EValue, body)   ==  8)        ? 1 : -1];
-typedef char ev_check_text    [(offsetof(EValue, text)   == 16)        ? 1 : -1];
+typedef char ev_check_size[(sizeof(EValue) == EV_SIZEOF) ? 1 : -1];
+typedef char ev_check_tag[(offsetof(EValue, tag) == 0) ? 1 : -1];
+typedef char ev_check_body[(offsetof(EValue, body) == 8) ? 1 : -1];
+typedef char ev_check_text[(offsetof(EValue, text) == 16) ? 1 : -1];
 
 /* ─────────────────────────────────────────────
  * The pool — composite values that don't fit inline
@@ -124,28 +128,28 @@ typedef char ev_check_text    [(offsetof(EValue, text)   == 16)        ? 1 : -1]
 /* A pool entry header. Every composite type starts with this. */
 E_PACK_BEGIN
 typedef struct {
-    int32_t  ref;        /* this entry's own id (for verification)  */
-    int32_t  type;       /* ev_type of the composite                */
-    int32_t  len;        /* items / bytes                           */
-    int32_t  capacity;   /* allocated capacity                      */
+  int32_t ref;      /* this entry's own id (for verification)  */
+  int32_t type;     /* ev_type of the composite                */
+  int32_t len;      /* items / bytes                           */
+  int32_t capacity; /* allocated capacity                      */
 } ev_pool_header;
 E_PACK_END
 
 /* BLOB — arbitrary bytes, arbitrary length */
 E_PACK_BEGIN
 typedef struct {
-    ev_pool_header h;
-    uint8_t *data;       /* heap-allocated                          */
+  ev_pool_header h;
+  uint8_t *data; /* heap-allocated                          */
 } ev_blob;
 E_PACK_END
 
 /* LIST — ordered sequence of EValue */
 E_PACK_BEGIN
 typedef struct {
-    ev_pool_header h;
-    EValue  *items;      /* heap-allocated array of EValue          */
-    int16_t  confidence; /* the list's own trust level              */
-    int16_t  _pad;
+  ev_pool_header h;
+  EValue *items;      /* heap-allocated array of EValue          */
+  int16_t confidence; /* the list's own trust level              */
+  int16_t _pad;
 } ev_list;
 E_PACK_END
 
@@ -153,10 +157,10 @@ E_PACK_END
 #define EV_FIELD_NAME_MAX 64
 E_PACK_BEGIN
 typedef struct {
-    char    name[EV_FIELD_NAME_MAX];
-    EValue  value;
-    int16_t confidence;  /* field-level trust                       */
-    int16_t _pad;
+  char name[EV_FIELD_NAME_MAX];
+  EValue value;
+  int16_t confidence; /* field-level trust                       */
+  int16_t _pad;
 } ev_field;
 E_PACK_END
 
@@ -164,10 +168,10 @@ E_PACK_END
  * Maps to: SQL row, HTML element, Python dict, C struct, JSON object. */
 E_PACK_BEGIN
 typedef struct {
-    ev_pool_header h;
-    ev_field *fields;    /* heap-allocated array of ev_field        */
-    int16_t   confidence;
-    int16_t   _pad;
+  ev_pool_header h;
+  ev_field *fields; /* heap-allocated array of ev_field        */
+  int16_t confidence;
+  int16_t _pad;
 } ev_record;
 E_PACK_END
 
@@ -182,26 +186,26 @@ E_PACK_END
 #define EV_POOL_MAX 4096
 
 typedef struct {
-    int      used;
-    ev_type  types[EV_POOL_MAX];
-    union {
-        ev_blob   *blob;
-        ev_list   *list;
-        ev_record *rec;
-        void      *raw;
-    } slots[EV_POOL_MAX];
+  int used;
+  ev_type types[EV_POOL_MAX];
+  union {
+    ev_blob *blob;
+    ev_list *list;
+    ev_record *rec;
+    void *raw;
+  } slots[EV_POOL_MAX];
 } ev_pool;
 
 /* global pool — one per process; threads use arenas */
 extern ev_pool g_pool;
 
-void       ev_pool_init(ev_pool *pool);
-int32_t    ev_pool_alloc(ev_pool *pool, ev_type type);
-void      *ev_pool_get(ev_pool *pool, int32_t ref);
-ev_blob   *ev_pool_blob(ev_pool *pool, int32_t ref);
-ev_list   *ev_pool_list(ev_pool *pool, int32_t ref);
+void ev_pool_init(ev_pool *pool);
+int32_t ev_pool_alloc(ev_pool *pool, ev_type type);
+void *ev_pool_get(ev_pool *pool, int32_t ref);
+ev_blob *ev_pool_blob(ev_pool *pool, int32_t ref);
+ev_list *ev_pool_list(ev_pool *pool, int32_t ref);
 ev_record *ev_pool_record(ev_pool *pool, int32_t ref);
-void       ev_pool_free(ev_pool *pool, int32_t ref);
+void ev_pool_free(ev_pool *pool, int32_t ref);
 
 /*
  * ev_pool_clear — release EVERY entry in the pool and reset it.
@@ -215,7 +219,7 @@ void       ev_pool_free(ev_pool *pool, int32_t ref);
  *
  * Safe to call twice; safe on a pool that was only ever init'd.
  */
-void       ev_pool_clear(ev_pool *pool);
+void ev_pool_clear(ev_pool *pool);
 
 /* ─────────────────────────────────────────────
  * Constructors
@@ -225,12 +229,12 @@ EValue ev_void(void);
 EValue ev_bool(int b);
 EValue ev_int(int64_t v);
 EValue ev_real(double v);
-EValue ev_text(const char *s);          /* copies; truncates at EV_INLINE_MAX;
-                                           NULL → EV_UNKNOWN, never ""  */
+/* Copies; truncates at EV_INLINE_MAX; NULL → EV_UNKNOWN, never "". */
+EValue ev_text(const char *s);
 /* A value that is not known. A NULL or empty reason, or a NULL source, is
  * itself recorded as the reason rather than accepted silently. */
-EValue ev_unknown(const char *reason, const char *source,
-                  int32_t line, int32_t col);
+EValue ev_unknown(const char *reason, const char *source, int32_t line,
+                  int32_t col);
 EValue ev_blob_new(const uint8_t *data, int32_t len, ev_pool *pool);
 EValue ev_list_new(ev_pool *pool);
 EValue ev_record_new(ev_pool *pool);
@@ -240,15 +244,15 @@ EValue ev_record_new(ev_pool *pool);
  * ───────────────────────────────────────────── */
 
 /* LIST */
-int     ev_list_push(EValue *list, EValue item, ev_pool *pool);
-EValue  ev_list_get(const EValue *list, int32_t idx, ev_pool *pool);
+int ev_list_push(EValue *list, EValue item, ev_pool *pool);
+EValue ev_list_get(const EValue *list, int32_t idx, ev_pool *pool);
 int32_t ev_list_len(const EValue *list, ev_pool *pool);
 
 /* RECORD */
-int    ev_record_set(EValue *rec, const char *name, EValue val,
-                     int16_t conf, ev_pool *pool);
+int ev_record_set(EValue *rec, const char *name, EValue val, int16_t conf,
+                  ev_pool *pool);
 EValue ev_record_get(const EValue *rec, const char *name, ev_pool *pool);
-int    ev_record_has(const EValue *rec, const char *name, ev_pool *pool);
+int ev_record_has(const EValue *rec, const char *name, ev_pool *pool);
 
 /* ─────────────────────────────────────────────
  * Predicates and comparison
@@ -256,8 +260,8 @@ int    ev_record_has(const EValue *rec, const char *name, ev_pool *pool);
 
 int ev_is_void(const EValue *v);
 int ev_is_unknown(const EValue *v);
-const char *ev_unknown_reason(const EValue *v);  /* "" unless EV_UNKNOWN */
-const char *ev_unknown_source(const EValue *v);  /* "" unless EV_UNKNOWN */
+const char *ev_unknown_reason(const EValue *v); /* "" unless EV_UNKNOWN */
+const char *ev_unknown_source(const EValue *v); /* "" unless EV_UNKNOWN */
 int ev_is_scalar(const EValue *v);
 int ev_is_composite(const EValue *v);
 int ev_equal(const EValue *a, const EValue *b, ev_pool *pool);
@@ -273,10 +277,9 @@ int ev_equal(const EValue *a, const EValue *b, ev_pool *pool);
 
 #define EV_SERIAL_MAX 65536
 
-int32_t ev_serialise(const EValue *v, uint8_t *buf, int32_t cap,
-                     ev_pool *pool);
-EValue  ev_deserialise(const uint8_t *buf, int32_t len,
-                       int32_t *consumed, ev_pool *pool);
+int32_t ev_serialise(const EValue *v, uint8_t *buf, int32_t cap, ev_pool *pool);
+EValue ev_deserialise(const uint8_t *buf, int32_t len, int32_t *consumed,
+                      ev_pool *pool);
 
 /* ─────────────────────────────────────────────
  * Lift from source languages
@@ -287,22 +290,20 @@ EValue  ev_deserialise(const uint8_t *buf, int32_t len,
  * ───────────────────────────────────────────── */
 
 EValue ev_from_literal(const char *literal, e_lang lang, ev_pool *pool);
-EValue ev_from_sql_row(const char **cols, const char **vals,
-                       int ncols, ev_pool *pool);
+EValue ev_from_sql_row(const char **cols, const char **vals, int ncols,
+                       ev_pool *pool);
 /* The same, saying where the input was read. A null spelling becomes
  * EV_UNKNOWN at (source, line, col); an SQL NULL becomes EV_UNKNOWN at
  * (source, row, column number from 1). The plain forms above use
  * ("<literal>", 0, 0) and ("sql", 0, column), matching evalue.py. */
-EValue ev_from_literal_at(const char *literal, e_lang lang,
-                          const char *source, int32_t line, int32_t col,
-                          ev_pool *pool);
+EValue ev_from_literal_at(const char *literal, e_lang lang, const char *source,
+                          int32_t line, int32_t col, ev_pool *pool);
 EValue ev_from_sql_row_at(const char **cols, const char **vals, int ncols,
                           const char *source, int32_t row, ev_pool *pool);
-EValue ev_from_html_element(const char *tag, const char **attrs,
-                             int nattrs, ev_pool *pool);
+EValue ev_from_html_element(const char *tag, const char **attrs, int nattrs,
+                            ev_pool *pool);
 
 /* Describe an EValue in plain language (for the teaching layer) */
-const char *ev_describe(const EValue *v, ev_pool *pool,
-                        char *buf, int32_t cap);
+const char *ev_describe(const EValue *v, ev_pool *pool, char *buf, int32_t cap);
 
-#endif /* EVALUE_H */
+#endif /* EZR_0_ATOM_C_EVALUE_H_ */

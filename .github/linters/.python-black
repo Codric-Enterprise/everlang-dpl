@@ -1,0 +1,4 @@
+# Matches [tool.black] in pyproject.toml.
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311"]
