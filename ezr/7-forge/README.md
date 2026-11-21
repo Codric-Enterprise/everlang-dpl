@@ -1,6 +1,7 @@
 # Layer 7 — the forge
 
 Four lexers, five parsers, twenty front ends, one language.
+Four executors, four lanes, one answer.
 
 EZR V3.0 arrived with a working front end and no specification of it.
 `syntax.py` was the lexer, the parser and — by default — the only
@@ -24,6 +25,9 @@ python3 forge.py --reset              # start again from unratified
 python3 grammar_doc.py                # re-emit GRAMMAR.ebnf
 python3 quantum.py --stanzas 8        # a rhyming corpus, put to the matrix
 python3 quantum_test.py               # the rhyming corpus (35 assertions)
+python3 merge.py program.ezr          # run a program down all four lanes
+python3 merge.py -e "1 + 2" -v        # every lane, every stage
+python3 ../tests/lanes_test.py        # the lanes, the executors and the merge
 ```
 
 `--floor` sets how many programs must be fuzzed before convergence may
@@ -47,6 +51,10 @@ quiet run keeps getting more expensive to stay quiet.
 | `repair.py` | localises a defect, synthesises a fix, adopts it only if it breaks nothing known |
 | `selfheal.py` | puts a real defect back in the matrix and shows the loop closing on it |
 | `quantum.py` | generation addressed by rhyme instead of seeded by a draw |
+| `algebra.py` | the value rules every executor shares, and nothing about evaluation order |
+| `executors.py` | X1 tree walker · X2 compiled closures · X3 stack machine · X4 bytecode |
+| `lanes.py` | four pipelines, each one lexer, one parser and one executor end to end |
+| `merge.py` | where the lanes meet: votes at tokens, tree, position and result |
 | `ratified.json` | the rulings, with the reason for each |
 | `ledger.json` | what the last run did, generation by generation |
 | `counterexamples.json` | what the forge found; every later generation must still satisfy them |
@@ -101,6 +109,51 @@ existed. `law_rhyme` asks that question directly.
 When no answering program is found inside the budget, the couplet
 **withholds**, the same thing the forge does below its fourth tier and
 for the same reason.
+
+## Four lanes, run to a value
+
+The matrix tests parts. It pairs every lexer with every parser, and it
+stops at the tree: nothing it builds is ever run. The lanes are the
+other shape. Each fixes one lexer, one parser and one executor together
+and carries a program all the way to a value, so four independent
+pipelines answer the same question and only meet at the end:
+
+```
+Lane 1   L1-regex-master  ->  P1-recdescent  ->  X1-walker
+Lane 2   L2-handrolled    ->  P2-pratt       ->  X2-closures
+Lane 3   L3-dfa           ->  P3-shunting    ->  X3-stack
+Lane 4   L4-trie          ->  P4-earley      ->  X4-bytecode
+```
+
+The four executors share `algebra.py` -- what an operator does to two
+values, what a call is worth, how an outcome is written down -- and
+nothing else. When each operand is evaluated, which arm of an `if`
+runs, where a Z stops the work and how deep a call may go is strategy,
+and each executor keeps it somewhere different: in the call graph, in
+closures fixed at compile time, in the order tasks are pushed, in where
+the jumps go.
+
+`merge.py` asks at every boundary whether the lanes agree, and settles
+it with the consensus tier below: at least three of the four, and two
+thirds of those answering.
+
+| Lanes agreeing | Answer |
+|---|---|
+| 4 of 4 | the value, at its own confidence |
+| 3 of 4 | the majority's value, confidence scaled by 3/4, the dissenting lane named |
+| 2 of 4 or fewer | withheld: Z, and where the lanes split |
+
+Agreement never *raises* confidence. Four implementations agreeing says
+the implementations are sound, not that the program earned trust it
+did not have.
+
+The swap is the dynamic part, and it only runs when a lane dissents.
+The dissenting lane's parser is handed the majority's tokens and its
+executor the majority's tree; whichever part still disagrees on clean
+input is the one that drifted, and the report names that part rather
+than the whole lane. P5 reads the majority's tokens as a witness: it
+says whether the tree the lanes agreed on is the one `GRAMMAR.ebnf`
+describes.
 
 ## The four tiers
 

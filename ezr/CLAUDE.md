@@ -6,7 +6,7 @@ Founder: Ricky (Dreid), Codric Enterprise.
 ## Before you touch anything
 
 ```
-python3 tests/run_all.py          # must be 29 passed / 0 failed
+python3 tests/run_all.py          # must be 34 passed / 0 failed
 ```
 
 The suite count is not decoration: it was 26 here while the gate ran 28,

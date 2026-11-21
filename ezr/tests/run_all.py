@@ -68,6 +68,11 @@ SUITES = [
     # syntax.py (what ezrun runs) and the Java parser. Known splits are
     # listed in tests/parser_corpus/KNOWN_SPLITS.json and printed.
     ("Parser agreement", f"{sys.executable} tests/parser_agreement.py"),
+    # Four lanes, each one lexer -> one parser -> its own executor, run to a
+    # value and reconciled by 7-forge/merge.py. Checks every executor against
+    # stated answers, against eval_ast, and against each other under fuzz;
+    # breaks one part at a time and checks the merge names it.
+    ("Lanes", f"{sys.executable} tests/lanes_test.py"),
     # Hypothesis against every Python confidence operator: an unknown
     # input poisons the result, and a known result never outranks its
     # weakest input. Known violations are pinned, printed, and must keep

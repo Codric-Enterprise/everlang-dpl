@@ -250,14 +250,15 @@ this block stops matching a real run.
 | Gold standard    | ran | 0 |
 | Golden master    | 31 | 0 |
 | Parser agreement | 267 | 0 |
+| Lanes            | 1542 | 0 |
 | Confidence props | 30 | 0 |
 | Notebook         | ran | 0 |
 | Research         | ran | 0 |
 | Examples         | 57 | 0 |
 | Algebra parity   | ran | 0 |
-| **total** | **1653** | **0** |
+| **total** | **3195** | **0** |
 
-The total covers the 23 suites that report a tally. 9 more run and pass without counting assertions (C bridge, Kitchen sink, Form IR (C99), Native (C99), Integration, Gold standard, Notebook, Research, Algebra parity); they are verified, not quantified, and inventing a number for them is what this table exists to prevent.
+The total covers the 24 suites that report a tally. 9 more run and pass without counting assertions (C bridge, Kitchen sink, Form IR (C99), Native (C99), Integration, Gold standard, Notebook, Research, Algebra parity); they are verified, not quantified, and inventing a number for them is what this table exists to prevent.
 <!-- assertion-counts:end -->
 
 ### Why this is generated now
@@ -742,3 +743,53 @@ indexing on purpose, and its own comment says why. The five divergences
 disagreements (arity/unbound staging, a numeric-precision limit, two
 settled grammar questions where v4.10 permits what the forge's doctrine
 forbids), not absence.
+
+### 7.12 Four lanes run to a value, and what they found on the way
+
+The forge's four lexers and five parsers argued about what a program
+says and nothing ran what they built. `7-forge/executors.py` adds four
+executors -- a tree walker, compiled closures, an explicit stack machine
+with no host recursion, and a bytecode machine -- and `lanes.py` fixes
+one lexer, one parser and one executor together into four pipelines
+that carry a program to a value. `merge.py` reconciles them: VOWELS.md's
+oracle at every boundary, the majority's value scaled by the share of
+lanes behind it, and, only when a lane dissents, a swap of that lane's
+parts onto the majority's input to name the part that drifted.
+
+`tests/lanes_test.py` measured, on its fixed seeds:
+
+```
+executors vs each other    2,000+ fuzzed runs, 0 splits
+executors vs eval_ast      every corpus, example and fuzzed program
+                           both accept: 0 disagreements beyond the three below
+golden parser corpus       48 files, unanimous tokens, trees and results;
+                           trees equal to EXPECTED
+broken part, one at a time lexer, parser, executor and crash: each
+                           outvoted 3 to 1 and named by part
+```
+
+Three things the lanes found about the incumbent:
+
+- **Semantic lets list and bool operands into arithmetic and ordering,
+  and `eval_ast` answers with Python's meaning.** `[2] * 3` is
+  `[2, 2, 2]`, `[] * 3` is `[]`, `true < false` is `false`. No document
+  gives Ever list repetition or an order on truth values; that is
+  CPython's. The lanes refuse all three as `Z(misbound)`. Which is
+  right is a language decision, so it is listed here and not ratified:
+  the oracle in `lanes_test.py` counts these separately (via
+  `algebra.DEPARTURES`) rather than calling them agreement.
+- **V3 still reproduces.** `1 / 0.000…1` (1e-320) makes `eval_ast` raise
+  `OverflowError` tidying the infinity into an int. The lanes answer
+  `Z(unbounded)`, since evaluation is total.
+- **A float that becomes integral stops being a float.** `eval_ast`
+  tidies `12155.0625 * 12155.0625`-style results into ints once they
+  are whole, so `p(n) = let h = p(n-1) in h * h` from `10.5` turns into
+  exact big-integer arithmetic and never overflows: `p(12)` is a
+  4,000-digit integer. The lanes keep the same rule, so they agree; it
+  is recorded because a real that silently becomes exact is a precision
+  claim nobody made.
+
+The Earley parser's known early-EOF position (7.4, `KNOWN_SPLITS.json`)
+shows in the merge as a `where` drift on four corpus files: every lane
+agrees the program is refused and why, and Lane 4 names a different
+token. It does not change any answer.
