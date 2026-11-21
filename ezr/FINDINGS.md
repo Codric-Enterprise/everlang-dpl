@@ -16,7 +16,7 @@ Z has `u = 1`. Certain has `u = 0`.
 Excel — the corroboration formula — is *identically* multiplicative
 uncertainty combination:
 
-```
+```text
 u_result = u_a × u_b
 ```
 
@@ -74,7 +74,7 @@ so Z is the absorbing element under multiplication. Two of those three
 statements are false. `1 × x = x`, not 1; and Z is the **identity** of
 corroboration, not its absorbing element. Measured:
 
-```
+```text
 excel(0, b)   == b     for every b in 0..256     Z is the identity
 excel(256, b) == 256   for every b in 0..256     CERTAIN is what absorbs
 ```
@@ -118,7 +118,7 @@ imperfect witnesses, at any strength or count, reaches certainty.
 
 The integer scale used to round the last fraction away:
 
-```
+```text
 excel(250, 250) → 256     manufactured Certain from evidence
 excel(255, 255) → 256
 ```
@@ -130,7 +130,7 @@ that Certain is earned at runtime and never guessed.
 Fixed in C, Python and Ruby. Combination now caps at 255. Only two
 already-verified inputs (both exactly 256) return 256.
 
-```
+```text
 excel(250, 250) → 255
 excel(256, 256) → 256
 ```
@@ -353,7 +353,7 @@ not stated: nothing anywhere read `ScopeEntry.confidence` for an `SK.FN`
 entry, so a function's confidence was a field that could be written and
 never read. Measured before the fix, on that exact path:
 
-```
+```text
 def dbl(n) = n * 2        with dbl's scope entry forced to 1/256
 dbl(21)  ->  42 @ 256/256          [APP] wants min(1, 256) = 1
 ```
@@ -372,7 +372,7 @@ floor of 128. `runtime.run_source` registers functions at `EV_CERTAIN`
 (256) via `EvScope.set_fn`'s default. Three runners, one program, one
 outlier:
 
-```
+```text
 def dbl(n) = n * 2
 def main() = dbl(21)
 
@@ -395,7 +395,7 @@ decision about the language rather than a repair to it.
 
 Every layer in `run.sh` ran as
 
-```
+```text
 ( cd DIR && test | tail -2 ) && pass "L" || fail "L"
 ```
 
@@ -423,7 +423,7 @@ judged, so a Z argument to an unbound name reports THAT Z, not "was
 never defined"; same refusal defect classes; `len`/`head`/`tail` report
 the list's OWN confidence rather than manufacturing one).
 
-```
+```text
 128 programs, 123 agreed, 5 diverged
 ```
 
@@ -467,7 +467,7 @@ decision, not something to fix by editing one side to match the other.
 Independence is the load-bearing word, and `ezrun`'s `--example` did
 not check it. Measured, before the fix:
 
-```
+```text
 -x 'growth(100, 0) = 100'                          120/256
 -x 'growth(100, 0) = 100'  (the same case twice)    183/256
 -x 'growth(100, 0) = 100'  (the same case thrice)   217/256
@@ -561,7 +561,7 @@ accounts for it — 1 of 9 needs eight more, not one.
 
 Measured, following the language's own instructions:
 
-```
+```text
 $ ezrun fact.ever -d 3 --call 'fact(20)'
 Z(unbounded) — depth ceiling 3 exceeded
        to lift it: fact decreases n in every self-call, so it can be
@@ -599,7 +599,7 @@ The program reports `total = z [0/256]`, which reads as the intended
 lesson — one `z` reading poisons the sum. Measured with that reading
 replaced by a number:
 
-```
+```text
 let thu = 500        (420 + 610 + 380 + 500 + 705 = 2615)
 total = z [0/256]
 ```
@@ -607,7 +607,7 @@ total = z [0/256]
 Still `z`. The `z` was never about the missing reading. Counting the
 other way round is the whole fix:
 
-```
+```text
 def up(a, i, n) = if i >= n then 0 else a[i] + up(a, i + 1, n)
 def down(a, i)  = if i < 0 then 0 else a[i] + down(a, i - 1)
 
@@ -640,7 +640,7 @@ every suite checks its own language against itself.
 C and Ruby now carry both arithmetic pieces, and all four produce the
 identical ladder and the identical inverse:
 
-```
+```text
 p of p     0   1    2    3    4    5    6
            0 120  183  217  235  245  250
 2 of 3   122
@@ -709,7 +709,7 @@ losing the other language's construct.
 
 Effect, measured before and after, same corpus, same two runners:
 
-```
+```text
 before:  124 programs,  97 agreed, 27 diverged
 after:   128 programs, 123 agreed,  5 diverged
 ```

@@ -79,7 +79,7 @@ except ImportError:
 import abstract  # noqa: E402
 import syntax  # noqa: E402
 import vowels  # noqa: E402
-from ever import E, E_CERTAIN, Defect, combine, e_val, e_z  # noqa: E402
+from ever import E_CERTAIN, Defect, E, combine, e_val, e_z  # noqa: E402
 
 EXAMPLES = int(os.environ.get("EVER_PROPS_EXAMPLES", "300"))
 SETTINGS = settings(

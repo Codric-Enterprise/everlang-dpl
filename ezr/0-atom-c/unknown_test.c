@@ -18,10 +18,11 @@
  * Codric Enterprise
  */
 
-#include "evalue.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "evalue.h"
 
 static int passed = 0, failed = 0;
 
@@ -262,9 +263,11 @@ int main(int argc, char **argv) {
   char longsrc[200], longwhy[400];
   memset(longsrc, 's', sizeof longsrc - 1);
   longsrc[sizeof longsrc - 1] = '\0';
-  longwhy[0] = '\0';
-  for (int i = 0; i < 100; i++)
-    strcat(longwhy, "\xc3\xa9"); /* é x 100 */
+  for (int i = 0; i < 100; i++) { /* é x 100 */
+    longwhy[2 * i] = '\xc3';
+    longwhy[2 * i + 1] = '\xa9';
+  }
+  longwhy[200] = '\0';
   EValue lu = ev_unknown(longwhy, longsrc, 1, 1);
   ok("source cut to 63 bytes",
      strlen(ev_unknown_source(&lu)) == EV_SPAN_SOURCE_MAX);

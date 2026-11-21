@@ -11,7 +11,8 @@ ROOT = Path(__file__).parent.parent
 SUITES = [
     (
         "C atom",
-        "gcc -std=c99 -Wall 0-atom-c/tapestry.c 0-atom-c/tapestry_test.c -o /tmp/t_atom -lm && /tmp/t_atom",
+        "gcc -std=c99 -Wall 0-atom-c/tapestry.c 0-atom-c/tapestry_test.c -o /tmp/t_atom -lm"
+        " && /tmp/t_atom",
     ),
     (
         "C bridge",
@@ -19,7 +20,8 @@ SUITES = [
     ),
     (
         "EValue (C)",
-        "gcc -std=c99 -Wall 0-atom-c/evalue_test.c 0-atom-c/evalue.c 0-atom-c/tapestry.c -o /tmp/t_ev -lm && /tmp/t_ev",
+        "gcc -std=c99 -Wall 0-atom-c/evalue_test.c 0-atom-c/evalue.c 0-atom-c/tapestry.c"
+        " -o /tmp/t_ev -lm && /tmp/t_ev",
     ),
     (
         "IR+arena (C)",
