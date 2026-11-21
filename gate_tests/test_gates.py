@@ -82,3 +82,17 @@ def test_ezr_kitchen_sink_sanitizers(tmp_path):
         EZR,
     )
     _run([str(exe)], EZR)
+
+
+def test_ezr_unknown_boundary_sanitizers(tmp_path):
+    """EV_UNKNOWN's reader and lifters under ASan/UBSan, including every
+    cut-off prefix of a serialised UNKNOWN."""
+    _require("gcc")
+    exe = tmp_path / "unknown_asan"
+    sources = [f"0-atom-c/{name}.c" for name in ("unknown_test", "evalue", "tapestry")]
+    _run(
+        ["gcc", "-std=c99", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
+         "-o", str(exe), *sources, "-lm"],
+        EZR,
+    )
+    _run([str(exe)], EZR)

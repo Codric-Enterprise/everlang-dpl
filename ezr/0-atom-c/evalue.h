@@ -72,7 +72,15 @@ typedef enum {
     EV_BLOB   = 5,   /* pool_ref → ev_blob                              */
     EV_LIST   = 6,   /* pool_ref → ev_list                              */
     EV_RECORD = 7,   /* pool_ref → ev_record                            */
+    EV_UNKNOWN = 8,  /* not known: body.span + text "source\0reason\0"  */
 } ev_type;
+
+/* No null crosses this type. A NULL pointer, a foreign `null` literal or
+ * an SQL NULL becomes EV_UNKNOWN, which says why it is unknown and where
+ * it came from (source name, line, column). EV_VOID is an explicit unit
+ * and is never produced from a null. An EV_UNKNOWN equals nothing, not
+ * even another EV_UNKNOWN. Mirrors EvType.UNKNOWN in evalue.py. */
+#define EV_SPAN_SOURCE_MAX 63
 
 const char *ev_type_name(ev_type t);
 
@@ -96,6 +104,7 @@ typedef struct {
         int64_t  as_int;   /* EV_INT                         @  8     */
         double   as_real;  /* EV_REAL                        @  8     */
         int32_t  pool_ref; /* EV_BLOB / EV_LIST / EV_RECORD  @  8     */
+        struct { int32_t line; int32_t col; } span; /* EV_UNKNOWN @ 8 */
     } body;              /*                                 @  8 (8) */
     char     text[EV_INLINE_MAX]; /* EV_TEXT inline         @ 16 (192)*/
 } EValue;                /*                                 total 208 */
@@ -216,7 +225,12 @@ EValue ev_void(void);
 EValue ev_bool(int b);
 EValue ev_int(int64_t v);
 EValue ev_real(double v);
-EValue ev_text(const char *s);          /* copies; truncates at EV_INLINE_MAX */
+EValue ev_text(const char *s);          /* copies; truncates at EV_INLINE_MAX;
+                                           NULL → EV_UNKNOWN, never ""  */
+/* A value that is not known. A NULL or empty reason, or a NULL source, is
+ * itself recorded as the reason rather than accepted silently. */
+EValue ev_unknown(const char *reason, const char *source,
+                  int32_t line, int32_t col);
 EValue ev_blob_new(const uint8_t *data, int32_t len, ev_pool *pool);
 EValue ev_list_new(ev_pool *pool);
 EValue ev_record_new(ev_pool *pool);
@@ -241,6 +255,9 @@ int    ev_record_has(const EValue *rec, const char *name, ev_pool *pool);
  * ───────────────────────────────────────────── */
 
 int ev_is_void(const EValue *v);
+int ev_is_unknown(const EValue *v);
+const char *ev_unknown_reason(const EValue *v);  /* "" unless EV_UNKNOWN */
+const char *ev_unknown_source(const EValue *v);  /* "" unless EV_UNKNOWN */
 int ev_is_scalar(const EValue *v);
 int ev_is_composite(const EValue *v);
 int ev_equal(const EValue *a, const EValue *b, ev_pool *pool);
@@ -272,6 +289,15 @@ EValue  ev_deserialise(const uint8_t *buf, int32_t len,
 EValue ev_from_literal(const char *literal, e_lang lang, ev_pool *pool);
 EValue ev_from_sql_row(const char **cols, const char **vals,
                        int ncols, ev_pool *pool);
+/* The same, saying where the input was read. A null spelling becomes
+ * EV_UNKNOWN at (source, line, col); an SQL NULL becomes EV_UNKNOWN at
+ * (source, row, column number from 1). The plain forms above use
+ * ("<literal>", 0, 0) and ("sql", 0, column), matching evalue.py. */
+EValue ev_from_literal_at(const char *literal, e_lang lang,
+                          const char *source, int32_t line, int32_t col,
+                          ev_pool *pool);
+EValue ev_from_sql_row_at(const char **cols, const char **vals, int ncols,
+                          const char *source, int32_t row, ev_pool *pool);
 EValue ev_from_html_element(const char *tag, const char **attrs,
                              int nattrs, ev_pool *pool);
 

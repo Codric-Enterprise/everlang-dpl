@@ -223,37 +223,41 @@ this block stops matching a real run.
 <!-- assertion-counts:begin -->
 | suite | assertions | failed |
 |---|---:|---:|
-| C atom         | 88 | 0 |
-| C bridge       | ran | 0 |
-| EValue (C)     | 98 | 0 |
-| IR+arena (C)   | 70 | 0 |
-| Phase (C++)    | 50 | 0 |
-| Lexer          | 91 | 0 |
-| Parser         | 74 | 0 |
-| ABI            | 46 | 0 |
-| EValue (Py)    | 85 | 0 |
-| Interpreter    | 83 | 0 |
-| IR bridge      | 7 | 0 |
-| Pipeline       | 65 | 0 |
-| Abstraction    | 70 | 0 |
-| Runner         | 46 | 0 |
-| Vowels         | 79 | 0 |
-| Teaching       | 41 | 0 |
-| SQL archive    | 56 | 0 |
-| Kitchen sink   | ran | 0 |
-| Form IR (C99)  | ran | 0 |
-| Profiler       | 99 | 0 |
-| Native (C99)   | ran | 0 |
-| Integration    | ran | 0 |
-| Gold standard  | ran | 0 |
-| Golden master  | 31 | 0 |
-| Notebook       | ran | 0 |
-| Research       | ran | 0 |
-| Examples       | 57 | 0 |
-| Algebra parity | ran | 0 |
-| **total** | **1236** | **0** |
+| C atom           | 88 | 0 |
+| C bridge         | ran | 0 |
+| EValue (C)       | 98 | 0 |
+| IR+arena (C)     | 70 | 0 |
+| Phase (C++)      | 50 | 0 |
+| Lexer            | 91 | 0 |
+| Parser           | 74 | 0 |
+| ABI              | 46 | 0 |
+| EValue (Py)      | 85 | 0 |
+| Unknown (C)      | 46 | 0 |
+| Unknown (Py)     | 74 | 0 |
+| Interpreter      | 83 | 0 |
+| IR bridge        | 7 | 0 |
+| Pipeline         | 65 | 0 |
+| Abstraction      | 70 | 0 |
+| Runner           | 46 | 0 |
+| Vowels           | 79 | 0 |
+| Teaching         | 41 | 0 |
+| SQL archive      | 56 | 0 |
+| Kitchen sink     | ran | 0 |
+| Form IR (C99)    | ran | 0 |
+| Profiler         | 99 | 0 |
+| Native (C99)     | ran | 0 |
+| Integration      | ran | 0 |
+| Gold standard    | ran | 0 |
+| Golden master    | 31 | 0 |
+| Parser agreement | 267 | 0 |
+| Confidence props | 30 | 0 |
+| Notebook         | ran | 0 |
+| Research         | ran | 0 |
+| Examples         | 57 | 0 |
+| Algebra parity   | ran | 0 |
+| **total** | **1653** | **0** |
 
-The total covers the 19 suites that report a tally. 9 more run and pass without counting assertions (C bridge, Kitchen sink, Form IR (C99), Native (C99), Integration, Gold standard, Notebook, Research, Algebra parity); they are verified, not quantified, and inventing a number for them is what this table exists to prevent.
+The total covers the 23 suites that report a tally. 9 more run and pass without counting assertions (C bridge, Kitchen sink, Form IR (C99), Native (C99), Integration, Gold standard, Notebook, Research, Algebra parity); they are verified, not quantified, and inventing a number for them is what this table exists to prevent.
 <!-- assertion-counts:end -->
 
 ### Why this is generated now

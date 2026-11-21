@@ -1,0 +1,115 @@
+{
+  "note": "Every disagreement parser_agreement.py has found and not yet resolved, with the exact groups observed. Each distinct split is listed once, with every corpus file that shows it; \"* x P\" means all four lexers paired with parser P. The suite fails if a split appears that is not here, or one listed here heals or changes shape. Fix the language or the parser, then delete the entry; do not edit groups by hand to make a run pass.",
+  "reasons": {
+    "java-defect": "Java classifies a legal token in the wrong place as misbound; the forge, and syntax.py, call it unbounded. Doctrine (PIPELINE.md) only rules on running out of input (unbounded) and an illegal character (misbound); this case is unratified.",
+    "earley-where": "On input that ends too soon, P1-P3 refuse at the end of input; P4 (Earley) and P5 (generated from GRAMMAR.ebnf) refuse at the last token. Same verdict, different place. The forge's own laws only check that a refusal points inside the text, so it never saw this.",
+    "unterminated": "syntax.py's MASTER regex never matches an unclosed string, so its 'unterminated string' (unbounded) branch is dead code and it reports misbound for an unexpected character instead. ratified.json rules unbounded.",
+    "superset": "syntax.py accepts the v4.10 statement language on top of the core (let/ever statements, not, mixed defs and expressions) and repairs punctuation (Recovery). Expected by design; listed so it stays visible.",
+    "empty": "syntax.py accepts an empty program as an empty Program; every other witness refuses it as unbounded."
+  },
+  "splits": [
+    {
+      "files": ["tests/parser_corpus/24_cmp_chain_refused.ezr", "tests/parser_corpus/32_if_as_operand.ezr", "tests/parser_corpus/85_two_expressions.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated", "syntax.py"]
+      },
+      "why": ["java-defect"]
+    },
+    {
+      "files": ["tests/parser_corpus/81_unterminated_string.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[lex/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated", "Java"],
+        "FAIL[lex/misbound]": ["syntax.py"]
+      },
+      "why": ["unterminated"]
+    },
+    {
+      "files": ["tests/parser_corpus/82_missing_else.ezr"],
+      "aspect": "where",
+      "groups": {
+        "@11L1": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting"],
+        "@10L1": ["* x P4-earley", "* x P5-generated"]
+      },
+      "why": ["earley-where"]
+    },
+    {
+      "files": ["tests/parser_corpus/83_missing_rparen.ezr"],
+      "aspect": "where",
+      "groups": {
+        "@6L1": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting"],
+        "@5L1": ["* x P4-earley", "* x P5-generated"]
+      },
+      "why": ["earley-where"]
+    },
+    {
+      "files": ["tests/parser_corpus/84_trailing_operator.ezr"],
+      "aspect": "where",
+      "groups": {
+        "@3L1": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting"],
+        "@2L1": ["* x P4-earley", "* x P5-generated"]
+      },
+      "why": ["earley-where"]
+    },
+    {
+      "files": ["tests/parser_corpus/86_def_then_expression.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated"],
+        "(prog (def f (x) x) (call f 1) (beyond-core mixed))": ["syntax.py"]
+      },
+      "why": ["java-defect", "superset"]
+    },
+    {
+      "files": ["tests/parser_corpus/87_trailing_comma.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated"],
+        "(prog (call f 1))": ["syntax.py"]
+      },
+      "why": ["java-defect", "superset"]
+    },
+    {
+      "files": ["tests/parser_corpus/88_not_is_not_core.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated"],
+        "(prog (beyond-core UnaryOp))": ["syntax.py"]
+      },
+      "why": ["java-defect", "superset"]
+    },
+    {
+      "files": ["tests/parser_corpus/89_empty_program.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated", "Java"],
+        "(prog )": ["syntax.py"]
+      },
+      "why": ["empty"]
+    },
+    {
+      "files": ["tests/parser_corpus/90_def_missing_body.ezr"],
+      "aspect": "where",
+      "groups": {
+        "@10L1": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting"],
+        "@9L1": ["* x P4-earley", "* x P5-generated"]
+      },
+      "why": ["earley-where"]
+    },
+    {
+      "files": ["tests/parser_corpus/91_let_missing_in.ezr"],
+      "aspect": "verdict",
+      "groups": {
+        "FAIL[parse/misbound]": ["Java"],
+        "FAIL[parse/unbounded]": ["* x P1-recdescent", "* x P2-pratt", "* x P3-shunting", "* x P4-earley", "* x P5-generated"],
+        "(prog (beyond-core Let) x (beyond-core mixed))": ["syntax.py"]
+      },
+      "why": ["java-defect", "superset"]
+    }
+  ]
+}

@@ -184,6 +184,20 @@ assert struct.calcsize(PACK_FMT) == E_PARTICLE_SIZE, (
 # Encode / decode between E (Python) and the flat buffer
 # ─────────────────────────────────────────────
 
+#: States a particle may be in without holding a value: unknown, value
+#: pending, absent with a reason, an archived error. Every other state is
+#: a claim about a value, and a claim about nothing is a null.
+VALUE_FREE_STATES = ("Z", "EXPRESS", "ABSENT", "ERROR")
+
+#: e_type numbers the flat buffer can carry a value for.
+CARRIED_TYPES = {1: "int", 2: "real", 3: "text", 4: "bool"}
+
+
+def _null_at_boundary():
+    from evalue import NullAtBoundary
+    return NullAtBoundary
+
+
 def encode(p) -> bytes:
     """Python E → 440-byte flat buffer.
 
@@ -191,7 +205,15 @@ def encode(p) -> bytes:
     in the SQL archive's BLOB column, or sent over a socket. What it
     cannot do is hide a layout disagreement: it either unpacks correctly
     on the other side or it does not.
+
+    Nor can it carry a null. A particle that claims a value (any state
+    outside VALUE_FREE_STATES) must hold one the buffer can represent;
+    None, or a list or closure that would arrive in C as type VOID, is
+    refused with NullAtBoundary instead of being quietly sent as nothing.
+    A particle that does not know its value says so with state Z.
     """
+    if p is None:
+        raise _null_at_boundary()("encode(None): a particle crossing the ABI must exist")
     # resolve enums / state names to integers
     from ever import State, Defect, Lang, E_ZERO
 
@@ -218,6 +240,12 @@ def encode(p) -> bytes:
     elif isinstance(v, str):
         type_i = 3; val_i = 0
 
+    if type_i == 0 and p.state.name not in VALUE_FREE_STATES:
+        raise _null_at_boundary()(
+            f"{p.ident!r} is {p.state.name} but holds "
+            f"{'None' if v is None else type(v).__name__}, which would cross the "
+            f"ABI as nothing; use state Z (e_z) for a value that is not known")
+
     text_b  = (v.encode("utf-8")[:E_TEXT_MAX-1] if isinstance(v, str)
                else b"")
     ident_b = p.ident.encode("utf-8")[:E_IDENT_MAX-1]
@@ -243,9 +271,17 @@ def decode(buf: bytes):
     """440-byte flat buffer → Python E.
 
     Inverse of encode. The field order matches PACK_FMT exactly.
+
+    A buffer from C that claims a value (a state outside
+    VALUE_FREE_STATES) but carries none (type VOID, or a type the buffer
+    has no value slot for) is refused with NullAtBoundary rather than
+    decoded into a known particle holding None.
     """
     from ever import E, State, Defect, Lang
     import struct as st
+
+    if buf is None:
+        raise _null_at_boundary()("decode(None): no buffer crossed the ABI")
 
     (type_i, _pad0, val_i, text_b, state_i, defect_i,
      confidence, lo, hi, _pad1, lang_i, err_dist, gen, asc_pts, _pad2,
@@ -272,6 +308,11 @@ def decode(buf: bytes):
         value = text_b.rstrip(b"\x00").decode("utf-8", errors="replace")
     else:
         value = None
+
+    if type_i not in CARRIED_TYPES and state_v.name not in VALUE_FREE_STATES:
+        raise _null_at_boundary()(
+            f"C sent {ident_b.rstrip(bytes(1)).decode('utf-8', errors='replace')!r} "
+            f"as {state_v.name} with type {type_i}, which carries no value")
 
     p = E(
         ident      = ident_b.rstrip(b"\x00").decode("utf-8", errors="replace"),

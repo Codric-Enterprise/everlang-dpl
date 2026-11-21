@@ -115,6 +115,7 @@ const char *ev_type_name(ev_type t) {
         case EV_BLOB:   return "blob";
         case EV_LIST:   return "list";
         case EV_RECORD: return "record";
+        case EV_UNKNOWN: return "unknown";
         default:        return "?";
     }
 }
@@ -148,10 +149,50 @@ EValue ev_real(double d) {
 }
 
 EValue ev_text(const char *s) {
+    if (!s) return ev_unknown("NULL pointer passed to ev_text", "c", 0, 0);
     EValue v; memset(&v, 0, sizeof v);
     v.tag = EV_TEXT;
-    if (s) { strncpy(v.text, s, EV_INLINE_MAX - 1); v.text[EV_INLINE_MAX-1] = '\0'; }
+    strncpy(v.text, s, EV_INLINE_MAX - 1); v.text[EV_INLINE_MAX-1] = '\0';
     return v;
+}
+
+/* Copy at most `limit` bytes of s into dst, never splitting a UTF-8
+ * character, and NUL-terminate. Returns the bytes copied. */
+static size_t copy_utf8(char *dst, const char *s, size_t limit) {
+    size_t n = strlen(s);
+    if (n > limit) {
+        n = limit;
+        while (n > 0 && ((unsigned char)s[n] & 0xC0) == 0x80) n--;
+    }
+    memcpy(dst, s, n); dst[n] = '\0';
+    return n;
+}
+
+EValue ev_unknown(const char *reason, const char *source,
+                  int32_t line, int32_t col) {
+    EValue v; memset(&v, 0, sizeof v);
+    v.tag = EV_UNKNOWN;
+    if (!source || !*source) source = "<c>";
+    if (!reason || !*reason) reason = "ev_unknown called without a reason";
+    if (line < 0) line = 0;
+    if (col  < 0) col  = 0;
+    v.body.span.line = line;
+    v.body.span.col  = col;
+    /* text = source NUL reason NUL, cut to fit the inline 192 bytes the
+     * same way evalue.py's _unknown_wire_parts cuts them. */
+    size_t slen = copy_utf8(v.text, source, EV_SPAN_SOURCE_MAX);
+    copy_utf8(v.text + slen + 1, reason, EV_INLINE_MAX - slen - 2);
+    return v;
+}
+
+int ev_is_unknown(const EValue *v) { return v && v->tag == EV_UNKNOWN; }
+
+const char *ev_unknown_source(const EValue *v) {
+    return ev_is_unknown(v) ? v->text : "";
+}
+
+const char *ev_unknown_reason(const EValue *v) {
+    return ev_is_unknown(v) ? v->text + strlen(v->text) + 1 : "";
 }
 
 EValue ev_blob_new(const uint8_t *data, int32_t len, ev_pool *pool) {
@@ -287,9 +328,13 @@ int ev_record_has(const EValue *rec, const char *name, ev_pool *pool) {
 
 int ev_is_void(const EValue *v)      { return v->tag == EV_VOID; }
 int ev_is_scalar(const EValue *v)    { return v->tag <= EV_TEXT; }
-int ev_is_composite(const EValue *v) { return v->tag >= EV_BLOB; }
+int ev_is_composite(const EValue *v) {
+    return v->tag >= EV_BLOB && v->tag <= EV_RECORD;
+}
 
 int ev_equal(const EValue *a, const EValue *b, ev_pool *pool) {
+    /* Two unknowns are not known to be equal. Same rule in evalue.py. */
+    if (a->tag == EV_UNKNOWN || b->tag == EV_UNKNOWN) return 0;
     if (a->tag != b->tag) {
         /* INT and REAL interoperate */
         if ((a->tag == EV_INT && b->tag == EV_REAL))
@@ -376,10 +421,29 @@ static int32_t write_i64le(uint8_t *buf, int32_t cap, int32_t pos, int64_t v) {
 
 int32_t ev_serialise(const EValue *v, uint8_t *buf, int32_t cap, ev_pool *pool) {
     int32_t p = 0;
+    if (!v || !buf) return -1;          /* nothing to write, or nowhere */
     p = write_u8(buf, cap, p, (uint8_t)v->tag);
     if (p < 0) return -1;
     switch ((ev_type)v->tag) {
         case EV_VOID: break;
+        case EV_UNKNOWN: {
+            /* u16 reason length, reason, u8 source length, source,
+             * i32 line, i32 col -- evalue.py serialise() */
+            const char *src = ev_unknown_source(v);
+            const char *why = ev_unknown_reason(v);
+            uint16_t rlen = (uint16_t)strlen(why);
+            uint8_t  slen = (uint8_t)strlen(src);
+            p = write_u16le(buf,cap,p,rlen);
+            if (p < 0 || p + rlen > cap) return -1;
+            memcpy(buf+p, why, rlen); p += rlen;
+            p = write_u8(buf,cap,p,slen);
+            if (p < 0 || p + slen > cap) return -1;
+            memcpy(buf+p, src, slen); p += slen;
+            p = write_i32le(buf,cap,p,v->body.span.line);
+            if (p < 0) return -1;
+            p = write_i32le(buf,cap,p,v->body.span.col);
+            break;
+        }
         case EV_BOOL: p = write_u8(buf,cap,p,(uint8_t)v->body.as_bool); break;
         case EV_INT:  p = write_i64le(buf,cap,p,v->body.as_int); break;
         case EV_REAL: {
@@ -447,11 +511,39 @@ static int64_t read_i64le(const uint8_t*b,int32_t*p){
 EValue ev_deserialise(const uint8_t *buf, int32_t len,
                       int32_t *consumed, ev_pool *pool) {
     int32_t p = 0;
-    if (len < 1) { if (consumed) *consumed=0; return ev_void(); }
+    /* A missing or empty buffer used to come back as VOID: a null read as
+     * "nothing, on purpose". It is unknown, and says so. */
+    if (!buf || len < 1) {
+        if (consumed) *consumed = 0;
+        return ev_unknown(buf ? "empty buffer at ev_deserialise"
+                              : "NULL buffer at ev_deserialise", "c", 0, 0);
+    }
     ev_type tag = (ev_type)read_u8(buf, &p);
     EValue v; memset(&v, 0, sizeof v); v.tag = tag;
     switch (tag) {
         case EV_VOID: break;
+        case EV_UNKNOWN: {
+            /* Every read is bounded by len: a cut-off UNKNOWN is still
+             * unknown, and says it was cut off, rather than reading on. */
+            char why[EV_INLINE_MAX], src[EV_SPAN_SOURCE_MAX + 1];
+            if (p + 2 > len) goto truncated;
+            uint16_t rlen = read_u16le(buf, &p);
+            if (p + rlen + 1 > len) goto truncated;
+            size_t rc = rlen < sizeof why ? rlen : sizeof why - 1;
+            memcpy(why, buf+p, rc); why[rc] = '\0'; p += rlen;
+            uint8_t slen = read_u8(buf, &p);
+            if (p + slen + 8 > len) goto truncated;
+            size_t sc = slen < sizeof src ? slen : sizeof src - 1;
+            memcpy(src, buf+p, sc); src[sc] = '\0'; p += slen;
+            int32_t line = read_i32le(buf, &p);
+            int32_t col  = read_i32le(buf, &p);
+            v = ev_unknown(why, src, line, col);
+            break;
+        truncated:
+            p = len;
+            v = ev_unknown("truncated UNKNOWN at ev_deserialise", "c", 0, 0);
+            break;
+        }
         case EV_BOOL: v.body.as_bool = read_u8(buf, &p); break;
         case EV_INT:  v.body.as_int  = read_i64le(buf, &p); break;
         case EV_REAL: {
@@ -492,7 +584,13 @@ EValue ev_deserialise(const uint8_t *buf, int32_t len,
             }
             break;
         }
-        default: v = ev_void(); break;
+        default: {
+            /* A tag this side does not know used to decode as VOID. */
+            char why[64];
+            snprintf(why, sizeof why, "unrecognised tag %d at ev_deserialise", (int)tag);
+            v = ev_unknown(why, "c", 0, 0);
+            break;
+        }
     }
     if (consumed) *consumed = p;
     return v;
@@ -503,11 +601,24 @@ EValue ev_deserialise(const uint8_t *buf, int32_t len,
  * ───────────────────────────────────────────── */
 
 EValue ev_from_literal(const char *literal, e_lang lang, ev_pool *pool) {
-    if (!literal || !*literal) return ev_void();
-    /* NULL spellings */
-    const char *nulls[] = {"null","nil","None","NULL","undefined","",NULL};
+    return ev_from_literal_at(literal, lang, "<literal>", 0, 0, pool);
+}
+
+EValue ev_from_literal_at(const char *literal, e_lang lang,
+                          const char *source, int32_t line, int32_t col,
+                          ev_pool *pool) {
+    if (!literal)
+        return ev_unknown("NULL pointer passed as a literal", source, line, col);
+    if (!*literal)
+        return ev_unknown("empty literal", source, line, col);
+    /* NULL spellings, the same set as evalue.py's NULLS */
+    const char *nulls[] = {"null","nil","None","NULL","undefined","nullptr",NULL};
     for (int i = 0; nulls[i]; i++)
-        if (strcmp(literal, nulls[i]) == 0) return ev_void();
+        if (strcmp(literal, nulls[i]) == 0) {
+            char why[48];
+            snprintf(why, sizeof why, "null literal '%s'", literal);
+            return ev_unknown(why, source, line, col);
+        }
     /* bool */
     if (!strcmp(literal,"true")||!strcmp(literal,"True")) return ev_bool(1);
     if (!strcmp(literal,"false")||!strcmp(literal,"False")) return ev_bool(0);
@@ -535,11 +646,22 @@ EValue ev_from_literal(const char *literal, e_lang lang, ev_pool *pool) {
 
 EValue ev_from_sql_row(const char **cols, const char **vals,
                        int ncols, ev_pool *pool) {
+    return ev_from_sql_row_at(cols, vals, ncols, "sql", 0, pool);
+}
+
+EValue ev_from_sql_row_at(const char **cols, const char **vals, int ncols,
+                          const char *source, int32_t row, ev_pool *pool) {
     EValue rec = ev_record_new(pool);
     for (int i = 0; i < ncols; i++) {
-        EValue fval = vals[i]
-            ? ev_from_literal(vals[i], E_LANG_SQL, pool)
-            : ev_void();
+        EValue fval;
+        if (vals && vals[i]) {
+            fval = ev_from_literal_at(vals[i], E_LANG_SQL, source, row, i + 1, pool);
+        } else {
+            char why[96];
+            snprintf(why, sizeof why, "SQL NULL in column '%s'",
+                     cols && cols[i] ? cols[i] : "?");
+            fval = ev_unknown(why, source, row, i + 1);
+        }
         ev_record_set(&rec, cols[i], fval, E_CERTAIN, pool);
     }
     return rec;
@@ -566,6 +688,11 @@ const char *ev_describe(const EValue *v, ev_pool *pool,
                         char *buf, int32_t cap) {
     switch ((ev_type)v->tag) {
         case EV_VOID:   snprintf(buf,cap,"nothing"); break;
+        case EV_UNKNOWN:
+            snprintf(buf,cap,"unknown (%s at %s:%d:%d)", ev_unknown_reason(v),
+                     ev_unknown_source(v), (int)v->body.span.line,
+                     (int)v->body.span.col);
+            break;
         case EV_BOOL:   snprintf(buf,cap,v->body.as_bool ? "true" : "false"); break;
         case EV_INT:    snprintf(buf,cap,"%lld",(long long)v->body.as_int); break;
         case EV_REAL:   snprintf(buf,cap,"%.6g",v->body.as_real); break;

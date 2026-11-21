@@ -159,9 +159,11 @@ int main(void) {
     ok("lift False", ev_from_literal("False",E_LANG_RUBY,  &pool).body.as_bool == 0);
     EValue ls = ev_from_literal("\"Codric\"", E_LANG_PYTHON, &pool);
     ok("lift quoted string",       strcmp(ls.text, "Codric") == 0);
-    ok("lift null → void",         ev_from_literal("null", E_LANG_JAVA, &pool).tag == EV_VOID);
-    ok("lift nil → void",          ev_from_literal("nil",  E_LANG_RUBY, &pool).tag == EV_VOID);
-    ok("lift None → void",         ev_from_literal("None", E_LANG_PYTHON, &pool).tag == EV_VOID);
+    /* A null spelling is not a value: it lifts to EV_UNKNOWN with its
+     * reason (unknown_test.c covers the whole no-null boundary). */
+    ok("lift null → unknown",      ev_from_literal("null", E_LANG_JAVA, &pool).tag == EV_UNKNOWN);
+    ok("lift nil → unknown",       ev_from_literal("nil",  E_LANG_RUBY, &pool).tag == EV_UNKNOWN);
+    ok("lift None → unknown",      ev_from_literal("None", E_LANG_PYTHON, &pool).tag == EV_UNKNOWN);
 
     /* SQL row */
     const char *cols[] = {"id","name","score"};

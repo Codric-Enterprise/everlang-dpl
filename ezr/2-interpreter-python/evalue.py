@@ -8,11 +8,31 @@ conversion loss at any boundary.
 
     SCALAR (inline):  Void, Bool, Int, Real, Text
     COMPOSITE (pool): Blob, List, Record
+    UNKNOWN (inline): a value that is not known, with the reason and the
+                      source span it came from (see "No null" below)
 
 Every composite lifter produces the same record shape as its C
 counterpart, so a SQL row lifted in Python is the same structure as one
 lifted in C, and either can be serialised through the ABI layer and
 decoded by the other side.
+
+No null crosses this boundary
+-----------------------------
+A raw null -- Python None, a C NULL pointer, a foreign `null` literal,
+an SQL NULL -- says only "nothing here" and loses why. Ever does not let
+one through:
+
+  * Python None handed to lift_python, serialise or an EValue's items is
+    refused with NullAtBoundary. The caller must say what it means:
+    EValue.unknown(reason, span), or EValue.void() for a deliberate unit.
+  * Data that *contains* a null (a `null` literal, an SQL NULL) is lifted
+    to EValue.unknown with a reason and the Span it was found at.
+  * An UNKNOWN carries confidence 0, is never equal to anything (not even
+    another UNKNOWN), and asking for its .native raises UnknownValue
+    rather than handing back None.
+
+VOID stays what it always was: an explicit unit, "no value, on purpose".
+It is never produced from a null any more.
 
 Codric Enterprise · Ricky (Dreid) · 2026
 """
@@ -40,10 +60,42 @@ class EvType(IntEnum):
     BLOB   = 5
     LIST   = 6
     RECORD = 7
+    UNKNOWN = 8
 
 EV_INLINE_MAX   = 192
 EV_FIELD_NAME   = 64
 EV_CERTAIN      = 256
+EV_SPAN_SOURCE_MAX = 63     # bytes of a Span's source name on the wire
+
+
+class NullAtBoundary(ValueError):
+    """A raw null tried to cross into or out of EValue."""
+
+
+class UnknownValue(LookupError):
+    """The value was asked for, and it is not known."""
+
+    def __init__(self, v: "EValue"):
+        super().__init__(f"value is unknown: {v.ev_reason} at {v.ev_span}")
+        self.evalue = v
+
+
+@dataclass(frozen=True)
+class Span:
+    """Where an unknown came from: a source name, a 1-based line and
+    column (0 where the source has no lines, e.g. a bare literal)."""
+    source: str
+    line: int = 0
+    col: int = 0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, str) or not self.source:
+            raise ValueError("a Span needs a non-empty source name")
+        if not (0 <= self.line < 2**31 and 0 <= self.col < 2**31):
+            raise ValueError(f"Span line/col out of range: {self.line}:{self.col}")
+
+    def __str__(self) -> str:
+        return f"{self.source}:{self.line}:{self.col}"
 
 
 # ─────────────────────────────────────────────
@@ -67,8 +119,32 @@ class EValue:
     ev_list:    List["EValue"]      = field(default_factory=list)
     ev_record:  Dict[str, "EValue"] = field(default_factory=dict)
     confidence: int = EV_CERTAIN
+    ev_reason:  str                 = ""
+    ev_span:    Optional[Span]      = None
+
+    def __post_init__(self) -> None:
+        if self.ev_tag == EvType.UNKNOWN:
+            if not isinstance(self.ev_reason, str) or not self.ev_reason.strip():
+                raise NullAtBoundary("an UNKNOWN must say why it is unknown")
+            if not isinstance(self.ev_span, Span):
+                raise NullAtBoundary("an UNKNOWN must say where it came from (a Span)")
+            # Unknown is worth nothing. It does not get to claim otherwise.
+            object.__setattr__(self, "confidence", 0)
+        if self.ev_tag == EvType.LIST:
+            for i, item in enumerate(self.ev_list):
+                if not isinstance(item, EValue):
+                    raise NullAtBoundary(f"list item {i} is {item!r}, not an EValue")
+        if self.ev_tag == EvType.RECORD:
+            for k, item in self.ev_record.items():
+                if not isinstance(item, EValue):
+                    raise NullAtBoundary(f"record field {k!r} is {item!r}, not an EValue")
 
     # ── constructors ──
+
+    @classmethod
+    def unknown(cls, reason: str, span: Span) -> "EValue":
+        """A value that is not known, and the reason, and where."""
+        return cls(EvType.UNKNOWN, ev_reason=reason, ev_span=span)
 
     @classmethod
     def void(cls, conf: int = EV_CERTAIN) -> "EValue":
@@ -111,9 +187,12 @@ class EValue:
     @property
     def is_void(self)      -> bool: return self.ev_tag == EvType.VOID
     @property
+    def is_unknown(self)   -> bool: return self.ev_tag == EvType.UNKNOWN
+    @property
     def is_scalar(self)    -> bool: return self.ev_tag <= EvType.TEXT
     @property
-    def is_composite(self) -> bool: return self.ev_tag >= EvType.BLOB
+    def is_composite(self) -> bool:
+        return EvType.BLOB <= self.ev_tag <= EvType.RECORD
 
     @property
     def type_name(self) -> str:
@@ -124,6 +203,9 @@ class EValue:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, EValue):
             return NotImplemented
+        if self.ev_tag == EvType.UNKNOWN or other.ev_tag == EvType.UNKNOWN:
+            # Two unknowns are not known to be equal. Same rule in C.
+            return False
         if self.ev_tag != other.ev_tag:
             # INT and REAL interoperate
             if self.ev_tag == EvType.INT and other.ev_tag == EvType.REAL:
@@ -152,7 +234,7 @@ class EValue:
 
     def __hash__(self) -> int:
         return hash((self.ev_tag, self.ev_int, self.ev_real,
-                     self.ev_text, self.ev_blob,
+                     self.ev_text, self.ev_blob, self.ev_reason, self.ev_span,
                      tuple(self.ev_list or []),
                      tuple(sorted((self.ev_record or {}).items()))))
 
@@ -187,7 +269,12 @@ class EValue:
 
     @property
     def native(self) -> Any:
-        """The Python value, without the EValue wrapper."""
+        """The Python value, without the EValue wrapper.
+
+        An UNKNOWN has no Python value; asking raises UnknownValue rather
+        than returning None, which would be the null this type refuses."""
+        if self.ev_tag == EvType.UNKNOWN:
+            raise UnknownValue(self)
         if self.ev_tag == EvType.VOID:   return None
         if self.ev_tag == EvType.BOOL:   return self.ev_bool
         if self.ev_tag == EvType.INT:    return self.ev_int
@@ -203,6 +290,8 @@ class EValue:
     # ── description ──
 
     def describe(self) -> str:
+        if self.ev_tag == EvType.UNKNOWN:
+            return f"unknown ({self.ev_reason} at {self.ev_span})"
         if self.ev_tag == EvType.VOID:   return "nothing"
         if self.ev_tag == EvType.BOOL:   return "true" if self.ev_bool else "false"
         if self.ev_tag == EvType.INT:    return str(self.ev_int)
@@ -227,8 +316,23 @@ class EValue:
 def serialise(v: EValue) -> bytes:
     """Python EValue → self-describing bytes.
     Same format as the C implementation so either side can decode.
+
+    UNKNOWN: tag, u16 reason length, reason, u8 source length, source,
+    i32 line, i32 col (all little-endian). Reason and source share C's
+    192-byte inline text, so the reason is cut to fit after the source.
     """
+    if v is None:
+        raise NullAtBoundary("serialise(None): say EValue.unknown(reason, span) "
+                             "or EValue.void()")
+    if not isinstance(v, EValue):
+        raise TypeError(f"serialise expects an EValue, got {type(v).__name__}")
     tag = v.ev_tag
+    if tag == EvType.UNKNOWN:
+        span = _span_of(v)
+        src, reason = _unknown_wire_parts(v)
+        return (bytes([EvType.UNKNOWN]) + struct.pack("<H", len(reason)) + reason
+                + bytes([len(src)]) + src
+                + struct.pack("<ii", span.line, span.col))
     if tag == EvType.VOID:
         return bytes([EvType.VOID])
     if tag == EvType.BOOL:
@@ -258,11 +362,62 @@ def serialise(v: EValue) -> bytes:
     raise ValueError(f"unknown tag {tag}")
 
 
+def _cut_utf8(b: bytes, limit: int) -> bytes:
+    """At most `limit` bytes, never splitting a UTF-8 character."""
+    if len(b) <= limit:
+        return b
+    return b[:limit].decode("utf-8", errors="ignore").encode("utf-8")
+
+
+def _span_of(v: EValue) -> Span:
+    """An UNKNOWN's span. __post_init__ guarantees one; this says so to
+    the type checker instead of trusting it."""
+    if v.ev_span is None:
+        raise NullAtBoundary("an UNKNOWN without a span reached the wire")
+    return v.ev_span
+
+
+def _unknown_wire_parts(v: EValue) -> "tuple[bytes, bytes]":
+    """(source, reason) as bytes, cut so `source NUL reason NUL` fits the
+    192-byte inline text the C side stores them in."""
+    src = _cut_utf8(_span_of(v).source.encode("utf-8"), EV_SPAN_SOURCE_MAX)
+    reason = _cut_utf8(v.ev_reason.encode("utf-8"), EV_INLINE_MAX - len(src) - 2)
+    return src, reason
+
+
 def deserialise(buf: bytes, pos: int = 0) -> tuple:
     """bytes → (EValue, bytes_consumed).
     Same wire format as the C implementation.
+
+    A missing buffer is a raw null and is refused; a tag this side does
+    not know is refused too, rather than read as nothing.
     """
-    tag = EvType(buf[pos]); pos += 1
+    if buf is None:
+        raise NullAtBoundary("deserialise(None)")
+    if pos >= len(buf):
+        raise NullAtBoundary(f"deserialise: nothing to read at offset {pos}")
+    try:
+        tag = EvType(buf[pos])
+    except ValueError:
+        raise ValueError(f"unknown tag {buf[pos]} at offset {pos}") from None
+    pos += 1
+    if tag == EvType.UNKNOWN:
+        # Bounded like C's reader. C cannot raise, so it returns an
+        # UNKNOWN("truncated ..."); Python refuses the buffer instead.
+        start = pos - 1
+        try:
+            rlen = struct.unpack_from("<H", buf, pos)[0]; pos += 2
+            if pos + rlen + 1 > len(buf):
+                raise struct.error("short")
+            reason = buf[pos:pos+rlen].decode("utf-8", errors="replace"); pos += rlen
+            slen = buf[pos]; pos += 1
+            if pos + slen + 8 > len(buf):
+                raise struct.error("short")
+            source = buf[pos:pos+slen].decode("utf-8", errors="replace"); pos += slen
+            line, col = struct.unpack_from("<ii", buf, pos); pos += 8
+        except struct.error:
+            raise ValueError(f"truncated UNKNOWN at offset {start}") from None
+        return EValue.unknown(reason, Span(source, line, col)), pos
     if tag == EvType.VOID:
         return EValue.void(), pos
     if tag == EvType.BOOL:
@@ -306,11 +461,23 @@ def deserialise(buf: bytes, pos: int = 0) -> tuple:
 
 NULLS = {"null", "nil", "None", "NULL", "undefined", "nullptr", ""}
 
-def lift_literal(literal: str, conf: int = 120) -> EValue:
-    """Any source language literal → EValue at intake confidence."""
+#: The span a literal gets when its caller does not know where it was.
+LITERAL_SPAN = Span("<literal>", 0, 0)
+
+
+def lift_literal(literal: str, conf: int = 120,
+                 span: Optional[Span] = None) -> EValue:
+    """Any source language literal → EValue at intake confidence.
+
+    A null spelling in any language becomes UNKNOWN, carrying which
+    spelling it was and `span` (pass one when you know where the literal
+    was read; the C lifter uses the same default)."""
+    if literal is None:
+        raise NullAtBoundary("lift_literal(None): a literal must be text")
     s = literal.strip()
     if s in NULLS:
-        return EValue.void(conf)
+        why = f"null literal {s!r}" if s else "empty literal"
+        return EValue.unknown(why, span or LITERAL_SPAN)
     if s in ("true", "True"):
         return EValue.from_bool(True, conf)
     if s in ("false", "False"):
@@ -331,15 +498,23 @@ def lift_literal(literal: str, conf: int = 120) -> EValue:
     return EValue.from_text(s, conf)
 
 
-def lift_sql_row(cols: List[str], vals: List[str],
-                 conf: int = EV_CERTAIN) -> EValue:
+def lift_sql_row(cols: List[str], vals: List[Optional[str]],
+                 conf: int = EV_CERTAIN, source: str = "sql",
+                 row: int = 0) -> EValue:
     """SQL column names + values → EValue(RECORD).
     Identical structure to ev_from_sql_row in evalue.c.
+
+    An SQL NULL becomes UNKNOWN("SQL NULL in column 'c'") at
+    Span(source, row, column number), column numbers counted from 1.
     """
-    return EValue.from_record(
-        {col: lift_literal(val) if val is not None else EValue.void()
-         for col, val in zip(cols, vals)},
-        conf=conf)
+    fields: Dict[str, EValue] = {}
+    for i, (col, val) in enumerate(zip(cols, vals)):
+        span = Span(source, row, i + 1)
+        if val is None:
+            fields[col] = EValue.unknown(f"SQL NULL in column {col!r}", span)
+        else:
+            fields[col] = lift_literal(val, span=span)
+    return EValue.from_record(fields, conf=conf)
 
 
 def lift_html_element(tag: str, attrs: Dict[str, str],
@@ -356,22 +531,31 @@ def lift_html_element(tag: str, attrs: Dict[str, str],
     }, conf=conf)
 
 
-def lift_python(v: Any, conf: int = EV_CERTAIN) -> EValue:
+def lift_python(v: Any, conf: int = EV_CERTAIN, path: str = "$") -> EValue:
     """Python native value → EValue.
     This is the bridge from the Ever interpreter's Python values to the
     unified type.
+
+    None is refused with NullAtBoundary, naming where in the structure it
+    was (`path`). Python cannot say why a None is there; the caller can,
+    with EValue.unknown(reason, span) or EValue.void(). An EValue passes
+    through unchanged.
     """
-    if v is None:           return EValue.void(conf)
+    if v is None:
+        raise NullAtBoundary(f"None at {path}: say EValue.unknown(reason, span) "
+                             f"or EValue.void()")
+    if isinstance(v, EValue): return v
     if isinstance(v, bool): return EValue.from_bool(v, conf)
     if isinstance(v, int):  return EValue.from_int(v, conf)
     if isinstance(v, float):return EValue.from_real(v, conf)
     if isinstance(v, str):  return EValue.from_text(v, conf)
     if isinstance(v, bytes):return EValue.from_blob(v, conf)
     if isinstance(v, list):
-        return EValue.from_list([lift_python(x) for x in v], conf)
+        return EValue.from_list([lift_python(x, path=f"{path}[{i}]")
+                                 for i, x in enumerate(v)], conf)
     if isinstance(v, dict):
         return EValue.from_record(
-            {str(k): lift_python(vv) for k, vv in v.items()}, conf)
+            {str(k): lift_python(vv, path=f"{path}.{k}") for k, vv in v.items()}, conf)
     return EValue.from_text(str(v), conf)
 
 

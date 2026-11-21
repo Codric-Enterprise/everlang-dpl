@@ -503,10 +503,10 @@ class Ever:
                     f"  {name} withheld: {entry.confidence}/256 is below the "
                     f"execute floor of {E_EXECUTE_FLOOR}")
             else:
-                mark = " \u2693" if p.is_anchored else ""
+                mark = " \u2693" if entry.is_anchored else ""
                 self.output.append(
-                    f"  {name} = {p.value!r}  [{p.confidence}/256 "
-                    f"{p.state.name}{mark}]")
+                    f"  {name} = {entry.value!r}  [{entry.confidence}/256 "
+                    f"{entry.state.name}{mark}]")
             return
 
         raise EverError(f"cannot parse: {line}")

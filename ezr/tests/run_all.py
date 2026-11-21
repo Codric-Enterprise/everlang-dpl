@@ -33,6 +33,13 @@ SUITES = [
     ("Parser", f"{sys.executable} tests/test_parser.py"),
     ("ABI", f"{sys.executable} 2-interpreter-python/abi_test.py"),
     ("EValue (Py)", f"{sys.executable} 2-interpreter-python/evalue_test.py"),
+    # No null across the C/Python boundary: EV_UNKNOWN with a reason and a
+    # source span on both sides, byte-identical on the wire.
+    (
+        "Unknown (C)",
+        "gcc -std=c99 -Wall 0-atom-c/unknown_test.c 0-atom-c/evalue.c 0-atom-c/tapestry.c -o /tmp/t_unk -lm && /tmp/t_unk",  # noqa: E501
+    ),
+    ("Unknown (Py)", f"{sys.executable} 2-interpreter-python/unknown_test.py"),
     ("Interpreter", f"{sys.executable} 2-interpreter-python/ever_test.py"),
     ("IR bridge", f"{sys.executable} 2-interpreter-python/ir_runner.py"),
     ("Pipeline", f"{sys.executable} 2-interpreter-python/syntax_test.py"),
@@ -57,6 +64,15 @@ SUITES = [
     ("Integration", f"{sys.executable} tests/ev_integrate.py"),
     ("Gold standard", f"{sys.executable} tests/gold_check.py"),
     ("Golden master", f"{sys.executable} tests/golden.py"),
+    # One golden corpus through every front end: the forge's 20 pairs,
+    # syntax.py (what ezrun runs) and the Java parser. Known splits are
+    # listed in tests/parser_corpus/KNOWN_SPLITS.json and printed.
+    ("Parser agreement", f"{sys.executable} tests/parser_agreement.py"),
+    # Hypothesis against every Python confidence operator: an unknown
+    # input poisons the result, and a known result never outranks its
+    # weakest input. Known violations are pinned, printed, and must keep
+    # reproducing until fixed. SKIPs if hypothesis is not installed.
+    ("Confidence props", f"{sys.executable} tests/confidence_properties.py"),
     ("Notebook", f"{sys.executable} 2-interpreter-python/notebook.py"),
     ("Research", f"{sys.executable} research.py"),
     # The examples must do what their comments say. Nothing checked them
