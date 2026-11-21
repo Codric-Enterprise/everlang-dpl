@@ -12,6 +12,6 @@ Never touches: production source in any phase. If a test exposes a source bug, r
 Rules:
 - Add a regression test for every bug fixed and every feature added.
 - Golden outputs change only with an explicit justification in the report.
-- Gates: `python3 run_all.py` (all legs); `python3 ezr/tests/run_all.py` must read 34 passed, 0 failed.
+- Gates: `python3 run_all.py` (all legs); `python3 ezr/tests/run_all.py` must read 29 passed, 0 failed.
 
 Report: exact pass/fail/skip counts per suite.

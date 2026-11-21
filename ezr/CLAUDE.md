@@ -5,7 +5,7 @@ Founder: Ricky (Dreid), Codric Enterprise.
 
 ## Before you touch anything
 
-```
+```bash
 python3 tests/run_all.py          # must be 34 passed / 0 failed
 ```
 
@@ -26,8 +26,8 @@ call it complete.
 wrong until proven otherwise. If the *test* is wrong, fix the test and
 say why in the commit.
 
-**Never execute `.ever` source with regex or line-splitting.** Use
-`runtime.run_source()`. A regex shim used to live in the test harness
+**Never execute `.ever` source with regular expressions or line-splitting.** Use
+`runtime.run_source()`. A regular expression shim used to live in the test harness
 and it silently forced every binding's confidence to 256, destroying
 z-contagion in a language whose whole point is trust tracking.
 
@@ -114,7 +114,7 @@ touching that logic.
 FFI runs through Python's `ctypes`; none of the five backends know
 about it. Silently dropping an `extern` statement is worse than
 refusing — the CALL survives into the emitted code, and for a name
-that happens to already exist as a target-language builtin (R's own
+that happens to already exist as a target-language built-in (R's own
 `sqrt()`, for instance) it can appear to work by coincidence while
 every other extern fails. `emit.py`'s `Emitter.emit()` checks for any
 `Extern` statement and raises before emitting anything.
@@ -164,7 +164,7 @@ probably wrong.
 
 ## Verify before you report done
 
-```
+```bash
 python3 tests/run_all.py
 gcc -std=c99 -g -fsanitize=address,undefined -o /tmp/t \
   0-atom-c/kitchen_sink.c 0-atom-c/form.c 0-atom-c/form_lower.c \

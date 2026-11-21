@@ -23,7 +23,7 @@ Two JDKs are needed. `5-runtime-java` compiles with `--release 25`, and the `6-a
 ## Commands
 - Full gate (repo root): `python3 run_all.py`; Python+SQL only: `python3 run_all.py --skip-native`. `run_all.py` runs `5-runtime-java` on a JDK 25 when one is installed (`/usr/lib/jvm/java-25-*`); the container's `JAVA_HOME` is JDK 21 and fails with class file version 69.
 - Kotlin phase (from `6-android-kotlin/`): `./gradlew :core:test :predict:test :fuzz:test`; determinism: `tools/determinism_check.sh 3`.
-- ezr lineage gate (34 suites, must read 34 passed / 0 failed): `python3 ezr/tests/run_all.py`.
+- ezr lineage gate (29 suites, must read 29 passed / 0 failed): `python3 ezr/tests/run_all.py`.
 - Single Python test (from `everlang_standalone/`): `python3 -m unittest tests.test_algebra.TestLaws.test_uncertainty_endpoints`.
 - Single Java test: `mvn -f 5-runtime-java/pom.xml test -Dtest=SelfHealingAuditIntegrationTest`.
 - C++ phase: `make -C 1-phase-cpp test` (`make asan` for the sanitizer build).

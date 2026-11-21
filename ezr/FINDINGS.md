@@ -758,7 +758,7 @@ parts onto the majority's input to name the part that drifted.
 
 `tests/lanes_test.py` measured, on its fixed seeds:
 
-```
+```text
 executors vs each other    2,000+ fuzzed runs, 0 splits
 executors vs eval_ast      every corpus, example and fuzzed program
                            both accept: 0 disagreements beyond the three below

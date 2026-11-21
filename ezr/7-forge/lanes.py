@@ -186,9 +186,7 @@ def run_lane(
     return r
 
 
-def run_all(
-    src: str, call: Optional[str] = None, cfg: Optional[Config] = None
-) -> List[LaneRun]:
+def run_all(src: str, call: Optional[str] = None, cfg: Optional[Config] = None) -> List[LaneRun]:
     return [run_lane(lane, src, call, cfg) for lane in LANES]
 
 

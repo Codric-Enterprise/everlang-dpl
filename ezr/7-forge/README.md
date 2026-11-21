@@ -1,9 +1,9 @@
 # Layer 7 — the forge
 
-Four lexers, five parsers, twenty front ends, one language.
+Four lexers, five parsers, twenty frontends, one language.
 Four executors, four lanes, one answer.
 
-EZR V3.0 arrived with a working front end and no specification of it.
+EZR V3.0 arrived with a working frontend and no specification of it.
 `syntax.py` was the lexer, the parser and — by default — the only
 statement of what the language accepted. That is a stable arrangement
 right up to the moment somebody writes a second implementation, at
@@ -11,7 +11,7 @@ which point there is nothing to check it against.
 
 So this layer writes the second implementation. And the third, and the
 fourth, and then pairs every scanner with every parser and runs the
-matrix against the same cases. Where twenty front ends, assembled from
+matrix against the same cases. Where twenty frontends, assembled from
 nine independently derived parts, agree, the answer belongs to the
 language. Where they split, the language never said, and the split is
 the finding.
@@ -39,7 +39,7 @@ quiet run keeps getting more expensive to stay quiet.
 | File | What it is |
 |---|---|
 | `contract.py` | tokens, AST, canonical forms — the only thing shared |
-| `lexers.py` | L1 master regex · L2 hand scanner · L3 DFA table · L4 operator trie |
+| `lexers.py` | L1 master regular expression · L2 hand scanner · L3 DFA table · L4 operator trie |
 | `parsers.py` | P1 recursive descent · P2 Pratt · P3 shunting-yard · P4 Earley |
 | `corpus.py` | golden cases from the published docs, probes, the fuzzer |
 | `laws.py` | the seven properties every input must satisfy |
@@ -53,7 +53,7 @@ quiet run keeps getting more expensive to stay quiet.
 | `quantum.py` | generation addressed by rhyme instead of seeded by a draw |
 | `algebra.py` | the value rules every executor shares, and nothing about evaluation order |
 | `executors.py` | X1 tree walker · X2 compiled closures · X3 stack machine · X4 bytecode |
-| `lanes.py` | four pipelines, each one lexer, one parser and one executor end to end |
+| `lanes.py` | four pipelines, each one lexer, one parser and one executor end-to-end |
 | `merge.py` | where the lanes meet: votes at tokens, tree, position and result |
 | `ratified.json` | the rulings, with the reason for each |
 | `ledger.json` | what the last run did, generation by generation |
@@ -118,7 +118,7 @@ other shape. Each fixes one lexer, one parser and one executor together
 and carries a program all the way to a value, so four independent
 pipelines answer the same question and only meet at the end:
 
-```
+```text
 Lane 1   L1-regex-master  ->  P1-recdescent  ->  X1-walker
 Lane 2   L2-handrolled    ->  P2-pratt       ->  X2-closures
 Lane 3   L3-dfa           ->  P3-shunting    ->  X3-stack
@@ -163,7 +163,7 @@ available.
 1. **Doctrine** — SEMANTICS.md or PIPELINE.md already says. A vote
    cannot overturn a published document, so this tier runs first.
 2. **Coverage** — stage 4 demonstrably holds something stages 1–3
-   cannot express. Consensus cannot see this: every front end can
+   cannot express. Consensus cannot see this: every frontend can
    agree, sincerely, on a limitation the rest of the language does not
    have.
 3. **Finding** — one of the laws settles it. A law violation is

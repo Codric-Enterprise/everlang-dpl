@@ -245,9 +245,7 @@ def span(a: E, b: E) -> E:
         return e_z("if", "branches are not spannable", Defect.UNBOUNDED)
     lo, hi = sorted([int(a.value), int(b.value)])
     if hi - lo > E_PI_WIDTH_WARN:
-        return e_z(
-            "if", f"branches span {hi - lo}, past the pi threshold", Defect.UNBOUNDED
-        )
+        return e_z("if", f"branches span {hi - lo}, past the pi threshold", Defect.UNBOUNDED)
     r = e_equiv("if", lo, hi)
     r.confidence = conf
     return r

@@ -72,9 +72,7 @@ def tree_of(src: str):
     return po.ast if po is not None and po.ok else None
 
 
-def outcomes(
-    src: str, call: Optional[str] = None, cfg: Optional[Config] = None
-) -> Dict[str, str]:
+def outcomes(src: str, call: Optional[str] = None, cfg: Optional[Config] = None) -> Dict[str, str]:
     prog = tree_of(src)
     entry = tree_of(call) if call else None
     return {x: executors.run(x, prog, entry, cfg).canon() for x in executors.EXECUTORS}
@@ -261,9 +259,7 @@ section("3. ORACLE — against syntax.eval_ast, what ezrun runs")
 # ═════════════════════════════════════════════════════════════════════
 
 
-def incumbent(
-    src: str, call: Optional[str], depth: int
-) -> Optional[Tuple[str, List[str]]]:
+def incumbent(src: str, call: Optional[str], depth: int) -> Optional[Tuple[str, List[str]]]:
     """What ezrun's path computes, or None when the incumbent refuses the
     program before stage 4 (so there is nothing to compare)."""
     c = syntax.compile_ever(src)
@@ -292,9 +288,7 @@ def incumbent(
     return canon(r), [ln for ln in buf.getvalue().splitlines() if ln.strip()]
 
 
-def lanes_say(
-    src: str, call: Optional[str], depth: int
-) -> Optional[Tuple[str, List[str]]]:
+def lanes_say(src: str, call: Optional[str], depth: int) -> Optional[Tuple[str, List[str]]]:
     """None when the lanes refuse the program at the front end. Where
     syntax.py accepts a program the forge grammar does not, that split
     belongs to parser_agreement.py, which already lists it."""
@@ -307,9 +301,7 @@ def lanes_say(
 corpus_files = sorted((ROOT / "tests" / "parser_corpus").glob("*.ezr")) + sorted(
     (ROOT / "examples").glob("*.ezr")
 )
-oracle_cases: List[Tuple[str, Optional[str]]] = [
-    (p.read_text(), None) for p in corpus_files
-]
+oracle_cases: List[Tuple[str, Optional[str]]] = [(p.read_text(), None) for p in corpus_files]
 oracle_cases += [(s, c) for s, c, cfg, _ in STATED if cfg is None]
 fz = Fuzzer(seed=7)
 for _ in range(1500):
@@ -370,9 +362,7 @@ for i in range(2500):
     for call in calls:
         entry = tree_of(call) if call else None
         cfg = Config(depth=fz.r.choice([3, 10, 100]))
-        answers = {
-            x: executors.run(x, prog, entry, cfg).canon() for x in executors.EXECUTORS
-        }
+        answers = {x: executors.run(x, prog, entry, cfg).canon() for x in executors.EXECUTORS}
         programs += 1
         if len(set(answers.values())) != 1:
             splits.append(f"{src!r} {call}: {answers}")
@@ -407,14 +397,11 @@ for p in corpus_files:
         where_splits += 1
         ok(
             f"{rel}: a where-split is Earley's known early-EOF position",
-            m.where.dissenters() == ["Lane 4"]
-            and all(d.part == "P4-earley" for d in m.drift),
+            m.where.dissenters() == ["Lane 4"] and all(d.part == "P4-earley" for d in m.drift),
         )
     else:
         ok(f"{rel}: no drift on a clean run", not m.drift)
-print(
-    f"  {len(corpus_files)} files, {where_splits} with the known Earley position split"
-)
+print(f"  {len(corpus_files)} files, {where_splits} with the known Earley position split")
 
 # ═════════════════════════════════════════════════════════════════════
 section("6. FAULTS — one broken part, named")
@@ -455,8 +442,7 @@ ok(
 ok("tokens and trees still agree", m.tokens.unanimous and m.tree.unanimous)
 ok(
     "the drift names X3-stack and only X3-stack",
-    [(d.lane, d.stage, d.part) for d in m.drift]
-    == [("Lane 3", "executor", "X3-stack")],
+    [(d.lane, d.stage, d.part) for d in m.drift] == [("Lane 3", "executor", "X3-stack")],
 )
 ok("the report says 3 of 4", "(3 of 4 lanes)" in merge.report(m))
 
@@ -470,11 +456,7 @@ def swapped_minus(parse: Callable) -> Callable:
 
     def run(toks: List[Tok]):
         out = parse(toks)
-        if (
-            out.ok
-            and out.ast.expr is not None
-            and getattr(out.ast.expr, "op", "") == "-"
-        ):
+        if out.ok and out.ast.expr is not None and getattr(out.ast.expr, "op", "") == "-":
             e = out.ast.expr
             e.left, e.right = e.right, e.left
         return out
@@ -498,9 +480,7 @@ def misread_two(lex: Callable) -> Callable:
 
     def run(src: str):
         out = lex(src)
-        out.toks = [
-            Tok(t.kind, "7", t.pos, t.line) if t.text == "2" else t for t in out.toks
-        ]
+        out.toks = [Tok(t.kind, "7", t.pos, t.line) if t.text == "2" else t for t in out.toks]
         return out
 
     return run

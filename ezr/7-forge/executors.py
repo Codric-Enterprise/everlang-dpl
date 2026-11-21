@@ -153,9 +153,7 @@ class Walker(_Executor):
     def branch(self, node: If, env: Env, depth: int) -> E:
         cond = self.walk(node.cond, env, depth)
         if cond.is_z:
-            return span(
-                self.walk(node.then, env, depth), self.walk(node.els, env, depth)
-            )
+            return span(self.walk(node.then, env, depth), self.walk(node.els, env, depth))
         refused = truth(cond)
         if refused is not None:
             return refused
@@ -220,9 +218,7 @@ class Closures(_Executor):
         if isinstance(node, Lst):
             return self._list([self.compile(i) for i in node.items])
         if isinstance(node, Let):
-            return self._let(
-                node.name, self.compile(node.value), self.compile(node.body)
-            )
+            return self._let(node.name, self.compile(node.value), self.compile(node.body))
         if isinstance(node, Call):
             return self._call(node.name, [self.compile(a) for a in node.args])
         what = type(node).__name__
@@ -304,9 +300,7 @@ class Closures(_Executor):
             if len(vals) != len(fn.params):
                 return arity(name, len(fn.params), len(vals))
             local = {p: v for p, v in zip(fn.params, vals)}
-            return applied(
-                name, self._body(name)(local, depth + 1), vals, self.cfg.trust
-            )
+            return applied(name, self._body(name)(local, depth + 1), vals, self.cfg.trust)
 
         return step
 
@@ -395,20 +389,14 @@ class Stack(_Executor):
     def k_taken(self, c: E) -> None:
         self.vals.append(taken(c, self.vals.pop()))
 
-    def k_item(
-        self, items: List[N], i: int, acc: List[E], env: Env, depth: int
-    ) -> None:
+    def k_item(self, items: List[N], i: int, acc: List[E], env: Env, depth: int) -> None:
         if i == len(items):
-            self.vals.append(
-                gathered([e.value for e in acc], [e.confidence for e in acc])
-            )
+            self.vals.append(gathered([e.value for e in acc], [e.confidence for e in acc]))
             return
         self.push("item_done", items, i, acc, env, depth)
         self.push("eval", items[i], env, depth)
 
-    def k_item_done(
-        self, items: List[N], i: int, acc: List[E], env: Env, depth: int
-    ) -> None:
+    def k_item_done(self, items: List[N], i: int, acc: List[E], env: Env, depth: int) -> None:
         e = self.vals.pop()
         if e.is_z:
             self.vals.append(e)
@@ -437,9 +425,7 @@ class Stack(_Executor):
         else:
             self.k_enter(node, acc, depth)
 
-    def k_arg_done(
-        self, node: Call, i: int, acc: List[E], env: Env, depth: int
-    ) -> None:
+    def k_arg_done(self, node: Call, i: int, acc: List[E], env: Env, depth: int) -> None:
         self.push("arg", node, i + 1, acc + [self.vals.pop()], env, depth)
 
     def k_enter(self, node: Call, args: List[E], depth: int) -> None:
@@ -562,9 +548,7 @@ class Bytecode(_Executor):
             code.append(("CALL", node.name, len(node.args)))
             code[hole] = ("GUARD", node.name, len(code))
         else:
-            code.append(
-                ("CONST", e_z("eval", f"cannot evaluate {type(node).__name__}"))
-            )
+            code.append(("CONST", e_z("eval", f"cannot evaluate {type(node).__name__}")))
 
     def emit_if(self, node: If, code: List[Tuple[Any, ...]]) -> None:
         self.emit(node.cond, code)
@@ -638,9 +622,7 @@ class Bytecode(_Executor):
                     stack[-1].append(e)
             elif kind == "SEAL":
                 acc = stack.pop()
-                stack.append(
-                    gathered([e.value for e in acc], [e.confidence for e in acc])
-                )
+                stack.append(gathered([e.value for e in acc], [e.confidence for e in acc]))
             elif kind == "BIND":
                 f.scopes.append({**f.scopes[-1], op[1]: stack.pop()})
             elif kind == "UNBIND":
@@ -666,9 +648,7 @@ class Bytecode(_Executor):
             else:  # pragma: no cover - the assembler emits nothing else
                 raise RuntimeError(f"unknown opcode {kind}")
 
-    def enter(
-        self, name: str, args: List[E], depth: int, stack: List[Any]
-    ) -> Optional[_Frame]:
+    def enter(self, name: str, args: List[E], depth: int, stack: List[Any]) -> Optional[_Frame]:
         """Judge a call. Pushes the answer and returns None, or returns
         the frame that will compute it."""
         stop = first_z(args)
@@ -680,9 +660,7 @@ class Bytecode(_Executor):
         elif len(args) != len(fn.params):
             stack.append(arity(name, len(fn.params), len(args)))
         else:
-            return _Frame(
-                self.unit(name), [dict(zip(fn.params, args))], depth + 1, name, args
-            )
+            return _Frame(self.unit(name), [dict(zip(fn.params, args))], depth + 1, name, args)
         return None
 
 

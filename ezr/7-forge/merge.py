@@ -148,9 +148,7 @@ def localise(run: LaneRun, ref: LaneRun, cfg: Optional[Config]) -> List[Drift]:
     lane = run.lane
     found: List[Drift] = []
     if run.tokens != ref.tokens:
-        found.append(
-            Drift(lane.name, "lexer", lane.lexer, _first_token_split(run, ref))
-        )
+        found.append(Drift(lane.name, "lexer", lane.lexer, _first_token_split(run, ref)))
     if ref.lexed is not None and ref.lexed.ok:
         try:
             po = parsers()[lane.parser](ref.lexed.toks)
@@ -264,9 +262,7 @@ def merge(src: str, call: Optional[str] = None, cfg: Optional[Config] = None) ->
     tree = Vote("tree", {r.lane.name: r.tree for r in runs})
     result = Vote("result", {r.lane.name: r.result for r in runs})
     refusing = {
-        r.lane.name: str(r.where)
-        for r in runs
-        if r.tree == tree.top and r.where is not None
+        r.lane.name: str(r.where) for r in runs if r.tree == tree.top and r.where is not None
     }
     where = Vote("where", refusing) if refusing else None
     m = Merged(src, call, runs, tokens, tree, where, result)
@@ -314,9 +310,7 @@ def merge(src: str, call: Optional[str] = None, cfg: Optional[Config] = None) ->
     if where is not None:
         for name in where.dissenters():
             run = next(r for r in runs if r.lane.name == name)
-            part = (
-                run.lane.lexer if run.tree.startswith("FAIL[lex") else run.lane.parser
-            )
+            part = run.lane.lexer if run.tree.startswith("FAIL[lex") else run.lane.parser
             m.drift.append(
                 Drift(
                     name,
@@ -360,11 +354,7 @@ def report(m: Merged, verbose: bool = False) -> str:
     if m.withheld:
         out.append(f"  answer withheld: {m.withheld}")
     elif m.value is not None:
-        tail = (
-            ""
-            if m.result.unanimous
-            else f"  ({m.result.agree} of {m.result.total} lanes)"
-        )
+        tail = "" if m.result.unanimous else f"  ({m.result.agree} of {m.result.total} lanes)"
         out.append(f"  answer {show_line(m.value)}{tail}")
     else:
         out.append(f"  answer {m.answer}")
@@ -372,21 +362,13 @@ def report(m: Merged, verbose: bool = False) -> str:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    ap = argparse.ArgumentParser(
-        prog="merge", description="Run a program down all four lanes."
-    )
+    ap = argparse.ArgumentParser(prog="merge", description="Run a program down all four lanes.")
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("file", nargs="?", help="program to run, or - for stdin")
     src.add_argument("-e", "--eval", metavar="EXPR", help="run one expression")
-    ap.add_argument(
-        "-c", "--call", metavar="EXPR", help="what to evaluate once defined"
-    )
-    ap.add_argument(
-        "-d", "--depth", type=int, default=DEFAULT_DEPTH, help="recursion ceiling"
-    )
-    ap.add_argument(
-        "-a", "--anchor", action="append", default=[], help="treat NAME as anchored"
-    )
+    ap.add_argument("-c", "--call", metavar="EXPR", help="what to evaluate once defined")
+    ap.add_argument("-d", "--depth", type=int, default=DEFAULT_DEPTH, help="recursion ceiling")
+    ap.add_argument("-a", "--anchor", action="append", default=[], help="treat NAME as anchored")
     ap.add_argument("-v", "--verbose", action="store_true", help="show every lane")
     args = ap.parse_args(argv)
     if args.eval is not None:
