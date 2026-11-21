@@ -25,10 +25,9 @@ Codric Enterprise · Ricky (Dreid) · 2026
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
 
-from contract import (Bin, Bool, Call, Def, Fail, If, Let, Lst, N, Num,
-                      ParseOut, Prog, Str, Var)
+from contract import Bin, Bool, Call, Def, Fail, If, Let, Lst, N, Num, ParseOut, Prog, Str, Var
 from spec import SPEC
 
 CMP_TEXT = {"<", ">", "<=", ">=", "==", "!="}
@@ -57,6 +56,7 @@ def _refuse_at(tok) -> "_Refuse":
 # Shared shell — the parts that are not about precedence
 # ═════════════════════════════════════════════
 
+
 class _Program:
     """Program shape, parameter lists and argument lists.
 
@@ -69,6 +69,20 @@ class _Program:
     The three classes that mix this in supply peek/take/want/at_kind,
     a `fndef`, and a `top()` that parses one expression.
     """
+
+    if TYPE_CHECKING:  # what each parser mixing this in supplies; no runtime effect
+
+        def peek(self) -> Any: ...
+
+        def take(self) -> Any: ...
+
+        def want(self, kind: str, text: Optional[str] = None) -> Any: ...
+
+        def at_kind(self, kind: str, text: Optional[str] = None) -> bool: ...
+
+        def fndef(self) -> Def: ...
+
+        def top(self) -> N: ...
 
     def program(self) -> Prog:
         multi = bool(SPEC.get("multi_definition", False))
@@ -143,6 +157,7 @@ class _Program:
 # P1 — recursive descent, one function per level
 # ═════════════════════════════════════════════
 
+
 class _RD(_Program):
     def __init__(self, toks):
         self.t, self.i = toks, 0
@@ -171,7 +186,6 @@ class _RD(_Program):
 
     def top(self) -> N:
         return self.expr()
-
 
     def fndef(self) -> Def:
         self.want("KW", "def")
@@ -218,11 +232,14 @@ class _RD(_Program):
     def atom(self) -> N:
         tk = self.peek()
         if tk.kind == "NUM":
-            self.take(); return _num_node(tk.text)
+            self.take()
+            return _num_node(tk.text)
         if tk.kind == "STR":
-            self.take(); return Str(tk.text[1:-1])
+            self.take()
+            return Str(tk.text[1:-1])
         if tk.kind == "KW" and tk.text in ("true", "false"):
-            self.take(); return Bool(tk.text == "true")
+            self.take()
+            return Bool(tk.text == "true")
         if tk.kind == "LBRACK":
             return self.list_literal()
         if tk.kind == "LPAR":
@@ -257,10 +274,16 @@ def parse_recdescent(toks) -> ParseOut:
 
 #: (left bp, right bp). Left-associative when right = left + 1.
 _BP: Dict[str, Tuple[int, int]] = {
-    "<": (1, 2), ">": (1, 2), "<=": (1, 2),
-    ">=": (1, 2), "==": (1, 2), "!=": (1, 2),
-    "+": (3, 4), "-": (3, 4),
-    "*": (5, 6), "/": (5, 6),
+    "<": (1, 2),
+    ">": (1, 2),
+    "<=": (1, 2),
+    ">=": (1, 2),
+    "==": (1, 2),
+    "!=": (1, 2),
+    "+": (3, 4),
+    "-": (3, 4),
+    "*": (5, 6),
+    "/": (5, 6),
 }
 #: Prefix minus binds tighter than any infix operator.
 _PREFIX_BP = 7
@@ -291,7 +314,6 @@ class _Pratt(_Program):
         if tk.kind != kind or (text is not None and tk.text != text):
             raise _refuse_at(tk)
         return self.take()
-
 
     def fndef(self) -> Def:
         self.want("KW", "def")
@@ -387,8 +409,16 @@ def parse_pratt(toks) -> ParseOut:
 # ═════════════════════════════════════════════
 
 _PREC: Dict[str, int] = {
-    "<": 1, ">": 1, "<=": 1, ">=": 1, "==": 1, "!=": 1,
-    "+": 2, "-": 2, "*": 3, "/": 3,
+    "<": 1,
+    ">": 1,
+    "<=": 1,
+    ">=": 1,
+    "==": 1,
+    "!=": 1,
+    "+": 2,
+    "-": 2,
+    "*": 3,
+    "/": 3,
 }
 _UNARY = "u-"
 _PREC_UNARY = 4
@@ -424,7 +454,6 @@ class _Yard(_Program):
             raise _refuse_at(tk)
         return self.take()
 
-
     def fndef(self) -> Def:
         self.want("KW", "def")
         name = self.want("NAME").text
@@ -444,9 +473,9 @@ class _Yard(_Program):
             return
         if len(vals) < 2:
             raise _Refuse("unbounded", 0, 1)
-        r = vals.pop()
-        l = vals.pop()
-        vals.append(Bin(op, l, r))
+        right = vals.pop()
+        left = vals.pop()
+        vals.append(Bin(op, left, right))
 
     def expr(self) -> N:
         # Same correction as P2, for the same reason: an if is a whole
@@ -481,7 +510,7 @@ class _Yard(_Program):
                 break
             if tk.text in CMP_TEXT:
                 if cmp_seen:
-                    break          # non-associative: refuse the second
+                    break  # non-associative: refuse the second
                 cmp_seen = True
 
             self.take()
@@ -546,56 +575,56 @@ def parse_shunting(toks) -> ParseOut:
 # place associativity is *stated* rather than implied by control flow.
 
 _CORE_RULES: List[Tuple[str, Tuple[str, ...], Callable]] = [
-    ("S",        ("program",),                       lambda c: c[0]),
-
-    ("fndef",    ("'def'", "%NAME", "%LPAR", "%RPAR", "%EQ", "expr"),
-     lambda c: Def(c[1].text, [], c[5])),
-    ("fndef",    ("'def'", "%NAME", "%LPAR", "params", "%RPAR", "%EQ", "expr"),
-     lambda c: Def(c[1].text, c[3], c[6])),
-
-    ("params",   ("%NAME",),                         lambda c: [c[0].text]),
-    ("params",   ("params", "%COMMA", "%NAME"),      lambda c: c[0] + [c[2].text]),
-
-    ("expr",     ("ifexpr",),                        lambda c: c[0]),
-    ("expr",     ("letexpr",),                       lambda c: c[0]),
-    ("expr",     ("compare",),                       lambda c: c[0]),
-
-    ("letexpr",  ("'let'", "%NAME", "%EQ", "expr", "'in'", "expr"),
-     lambda c: Let(c[1].text, c[3], c[5])),
-
-    ("ifexpr",   ("'if'", "expr", "'then'", "expr", "'else'", "expr"),
-     lambda c: If(c[1], c[3], c[5])),
-
-    ("compare",  ("additive", "%CMP", "additive"),
-     lambda c: Bin(c[1].text, c[0], c[2])),
-    ("compare",  ("additive",),                      lambda c: c[0]),
-
-    ("additive", ("additive", "'+'", "multiply"),    lambda c: Bin("+", c[0], c[2])),
-    ("additive", ("additive", "'-'", "multiply"),    lambda c: Bin("-", c[0], c[2])),
-    ("additive", ("multiply",),                      lambda c: c[0]),
-
-    ("multiply", ("multiply", "'*'", "unary"),       lambda c: Bin("*", c[0], c[2])),
-    ("multiply", ("multiply", "'/'", "unary"),       lambda c: Bin("/", c[0], c[2])),
-    ("multiply", ("unary",),                         lambda c: c[0]),
-
-    ("unary",    ("'-'", "unary"),                   lambda c: Bin("-", Num(0), c[1])),
-    ("unary",    ("atom",),                          lambda c: c[0]),
-
-    ("atom",     ("%NUM",),                          lambda c: _num_node(c[0].text)),
-    ("atom",     ("%STR",),                          lambda c: Str(c[0].text[1:-1])),
-    ("atom",     ("'true'",),                        lambda c: Bool(True)),
-    ("atom",     ("'false'",),                       lambda c: Bool(False)),
-    ("atom",     ("%LPAR", "expr", "%RPAR"),         lambda c: c[1]),
-    ("atom",     ("%NAME", "%LPAR", "%RPAR"),        lambda c: Call(c[0].text, [])),
-    ("atom",     ("%NAME", "%LPAR", "arglist", "%RPAR"),
-     lambda c: Call(c[0].text, c[2])),
-    ("atom",     ("%LBRACK", "%RBRACK"),              lambda c: Lst([])),
-    ("atom",     ("%LBRACK", "arglist", "%RBRACK"),   lambda c: Lst(c[1])),
-    ("atom",     ("%NAME",),                         lambda c: Var(c[0].text)),
-
-    ("arglist",  ("expr",),                          lambda c: [c[0]]),
-    ("arglist",  ("arglist", "%COMMA", "expr"),      lambda c: c[0] + [c[2]]),
+    ("S", ("program",), lambda c: c[0]),
+    (
+        "fndef",
+        ("'def'", "%NAME", "%LPAR", "%RPAR", "%EQ", "expr"),
+        lambda c: Def(c[1].text, [], c[5]),
+    ),
+    (
+        "fndef",
+        ("'def'", "%NAME", "%LPAR", "params", "%RPAR", "%EQ", "expr"),
+        lambda c: Def(c[1].text, c[3], c[6]),
+    ),
+    ("params", ("%NAME",), lambda c: [c[0].text]),
+    ("params", ("params", "%COMMA", "%NAME"), lambda c: c[0] + [c[2].text]),
+    ("expr", ("ifexpr",), lambda c: c[0]),
+    ("expr", ("letexpr",), lambda c: c[0]),
+    ("expr", ("compare",), lambda c: c[0]),
+    (
+        "letexpr",
+        ("'let'", "%NAME", "%EQ", "expr", "'in'", "expr"),
+        lambda c: Let(c[1].text, c[3], c[5]),
+    ),
+    (
+        "ifexpr",
+        ("'if'", "expr", "'then'", "expr", "'else'", "expr"),
+        lambda c: If(c[1], c[3], c[5]),
+    ),
+    ("compare", ("additive", "%CMP", "additive"), lambda c: Bin(c[1].text, c[0], c[2])),
+    ("compare", ("additive",), lambda c: c[0]),
+    ("additive", ("additive", "'+'", "multiply"), lambda c: Bin("+", c[0], c[2])),
+    ("additive", ("additive", "'-'", "multiply"), lambda c: Bin("-", c[0], c[2])),
+    ("additive", ("multiply",), lambda c: c[0]),
+    ("multiply", ("multiply", "'*'", "unary"), lambda c: Bin("*", c[0], c[2])),
+    ("multiply", ("multiply", "'/'", "unary"), lambda c: Bin("/", c[0], c[2])),
+    ("multiply", ("unary",), lambda c: c[0]),
+    ("unary", ("'-'", "unary"), lambda c: Bin("-", Num(0), c[1])),
+    ("unary", ("atom",), lambda c: c[0]),
+    ("atom", ("%NUM",), lambda c: _num_node(c[0].text)),
+    ("atom", ("%STR",), lambda c: Str(c[0].text[1:-1])),
+    ("atom", ("'true'",), lambda c: Bool(True)),
+    ("atom", ("'false'",), lambda c: Bool(False)),
+    ("atom", ("%LPAR", "expr", "%RPAR"), lambda c: c[1]),
+    ("atom", ("%NAME", "%LPAR", "%RPAR"), lambda c: Call(c[0].text, [])),
+    ("atom", ("%NAME", "%LPAR", "arglist", "%RPAR"), lambda c: Call(c[0].text, c[2])),
+    ("atom", ("%LBRACK", "%RBRACK"), lambda c: Lst([])),
+    ("atom", ("%LBRACK", "arglist", "%RBRACK"), lambda c: Lst(c[1])),
+    ("atom", ("%NAME",), lambda c: Var(c[0].text)),
+    ("arglist", ("expr",), lambda c: [c[0]]),
+    ("arglist", ("arglist", "%COMMA", "expr"), lambda c: c[0] + [c[2]]),
 ]
+
 
 def _program_rules(multi: bool):
     """One definition per text, or a run of them.
@@ -607,20 +636,19 @@ def _program_rules(multi: bool):
     if not multi:
         return [
             ("program", ("fndef",), lambda c: Prog([c[0]], None)),
-            ("program", ("expr",),  lambda c: Prog([], c[0])),
+            ("program", ("expr",), lambda c: Prog([], c[0])),
         ]
     rules = [
-        ("program", ("deflist",),         lambda c: Prog(c[0], None)),
-        ("program", ("expr",),            lambda c: Prog([], c[0])),
-        ("deflist", ("fndef",),           lambda c: [c[0]]),
+        ("program", ("deflist",), lambda c: Prog(c[0], None)),
+        ("program", ("expr",), lambda c: Prog([], c[0])),
+        ("deflist", ("fndef",), lambda c: [c[0]]),
         ("deflist", ("deflist", "fndef"), lambda c: c[0] + [c[1]]),
     ]
     if bool(SPEC.get("trailing_expression", False)):
         # Ambiguous, and known to be: see FINDINGS['trailing_expression']
         # in forge.py. Kept expressible so the ruling stays a ruling
         # rather than a fact of the code.
-        rules.insert(1, ("program", ("deflist", "expr"),
-                         lambda c: Prog(c[0], c[1])))
+        rules.insert(1, ("program", ("deflist", "expr"), lambda c: Prog(c[0], c[1])))
     return rules
 
 
@@ -628,7 +656,7 @@ def _trailing_rules(allowed: bool):
     if not allowed:
         return []
     return [
-        ("params",  ("params", "%COMMA"),  lambda c: c[0]),
+        ("params", ("params", "%COMMA"), lambda c: c[0]),
         ("arglist", ("arglist", "%COMMA"), lambda c: c[0]),
     ]
 
@@ -721,7 +749,7 @@ def _value(item: "_Item", memo: dict):
     if hit is not _MISSING:
         return hit
 
-    memo[id(item)] = AMBIGUOUS      # guards a cyclic chart
+    memo[id(item)] = AMBIGUOUS  # guards a cyclic chart
     built = []
     for kids in item.derivs:
         vals = []
@@ -793,33 +821,29 @@ def parse_earley(toks) -> ParseOut:
             j += 1
             sym = item.next_sym()
 
-            if sym is None:                                    # complete
+            if sym is None:  # complete
                 lhs = GRAMMAR[item.rule][0]
                 for parent in list(chart[item.start]):
                     if parent.next_sym() == lhs:
                         for pk in list(parent.derivs):
-                            add(col, parent.rule, parent.dot + 1,
-                                parent.start, pk + (item,))
+                            add(col, parent.rule, parent.dot + 1, parent.start, pk + (item,))
                 continue
 
-            if sym in _NONTERMS:                               # predict
+            if sym in _NONTERMS:  # predict
                 for r in _BY_LHS[sym]:
                     add(col, r, 0, col, ())
                 continue
 
-            if col < n and _matches(sym, t[col]):              # scan
+            if col < n and _matches(sym, t[col]):  # scan
                 for pk in list(item.derivs):
-                    add(col + 1, item.rule, item.dot + 1,
-                        item.start, pk + (t[col],))
+                    add(col + 1, item.rule, item.dot + 1, item.start, pk + (t[col],))
 
     memo: dict = {}
     for item in chart[n]:
-        if item.next_sym() is None and item.start == 0 \
-                and GRAMMAR[item.rule][0] == "S":
+        if item.next_sym() is None and item.start == 0 and GRAMMAR[item.rule][0] == "S":
             val = _value(item, memo)
             if val is AMBIGUOUS:
-                return ParseOut(fail=Fail("parse", "overbound", 0,
-                                          t[0].line if t else 1))
+                return ParseOut(fail=Fail("parse", "overbound", 0, t[0].line if t else 1))
             return ParseOut(ast=val)
 
     # Nothing derived S over the whole input. Report the furthest column
@@ -827,9 +851,7 @@ def parse_earley(toks) -> ParseOut:
     # more useful than always blaming the last token.
     reach = max((c for c in range(n + 1) if chart[c]), default=0)
     bad = t[reach] if reach < n else (t[-1] if t else None)
-    return ParseOut(fail=Fail("parse", "unbounded",
-                              bad.pos if bad else 0,
-                              bad.line if bad else 1))
+    return ParseOut(fail=Fail("parse", "unbounded", bad.pos if bad else 0, bad.line if bad else 1))
 
 
 # ═════════════════════════════════════════════
@@ -838,10 +860,16 @@ def parse_earley(toks) -> ParseOut:
 
 PARSERS = {
     "P1-recdescent": parse_recdescent,
-    "P2-pratt":      parse_pratt,
-    "P3-shunting":   parse_shunting,
-    "P4-earley":     parse_earley,
+    "P2-pratt": parse_pratt,
+    "P3-shunting": parse_shunting,
+    "P4-earley": parse_earley,
 }
 
-__all__ = ["PARSERS", "GRAMMAR", "parse_recdescent", "parse_pratt",
-           "parse_shunting", "parse_earley"]
+__all__ = [
+    "PARSERS",
+    "GRAMMAR",
+    "parse_recdescent",
+    "parse_pratt",
+    "parse_shunting",
+    "parse_earley",
+]

@@ -48,7 +48,7 @@ Codric Enterprise
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "generated")
@@ -61,12 +61,12 @@ Rule = Tuple[str, Tuple[str, ...], object]
 # Grammar analysis
 # ═════════════════════════════════════════════
 
+
 def nonterminals(rules: Sequence[Rule]) -> set:
     return {lhs for lhs, _, _ in rules}
 
 
-def split_left_recursion(lhs: str, indexed: List[Tuple[int, Tuple[str, ...]]]
-                         ) -> Tuple[List, List]:
+def split_left_recursion(lhs: str, indexed: List[Tuple[int, Tuple[str, ...]]]) -> Tuple[List, List]:
     """A -> A alpha  from  A -> beta.
 
     The first group becomes a loop, the second the thing the loop
@@ -83,8 +83,9 @@ def split_left_recursion(lhs: str, indexed: List[Tuple[int, Tuple[str, ...]]]
     return rec, base
 
 
-def order_alternatives(alts: List[Tuple[int, Tuple[str, ...]]]
-                       ) -> List[Tuple[int, Tuple[str, ...]]]:
+def order_alternatives(
+    alts: List[Tuple[int, Tuple[str, ...]]],
+) -> List[Tuple[int, Tuple[str, ...]]]:
     """Longest first, original order preserved among equals.
 
     Longest-first is what makes `f(1)` parse as a call rather than as
@@ -190,7 +191,7 @@ def _emit_body(rhs, idx, indent, prefix):
 
 
 def emit(rules, start: str = "S") -> str:
-    by_lhs = {}
+    by_lhs: Dict[str, List[Tuple[int, Any]]] = {}
     for idx, (lhs, rhs, _) in enumerate(rules):
         by_lhs.setdefault(lhs, []).append((idx, rhs))
 
@@ -253,6 +254,7 @@ def emit(rules, start: str = "S") -> str:
 def generate(rules=None, start: str = "S", path: str = OUT_PATH) -> str:
     if rules is None:
         import parsers
+
         parsers._sync_grammar()
         rules = parsers.GRAMMAR
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -266,6 +268,7 @@ def load():
     """Generate, import, and hand back the parse function."""
     import importlib
     import sys
+
     generate()
     if OUT_DIR not in sys.path:
         sys.path.insert(0, OUT_DIR)

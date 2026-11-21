@@ -24,7 +24,7 @@ Codric Enterprise · Ricky (Dreid) · 2026
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set, Tuple, cast
 
 from contract import Fail, LexOut, Tok
 from spec import SPEC
@@ -36,13 +36,29 @@ from spec import SPEC
 #: Reserved words, as the incumbent declares them.
 #: Gen-0 keeps all nineteen even though the grammar reaches six.
 _NATIVE_KEYWORDS: Set[str] = {
-    "if", "then", "else", "def", "let", "true", "false",
-    "anchor", "ezr", "z", "show", "expect", "ascend", "in",
-    "assimilate", "learn", "equiv", "example", "to", "by",
+    "if",
+    "then",
+    "else",
+    "def",
+    "let",
+    "true",
+    "false",
+    "anchor",
+    "ezr",
+    "z",
+    "show",
+    "expect",
+    "ascend",
+    "in",
+    "assimilate",
+    "learn",
+    "equiv",
+    "example",
+    "to",
+    "by",
 }
 
-PUNCT: Dict[str, str] = {"(": "LPAR", ")": "RPAR", ",": "COMMA",
-                         "[": "LBRACK", "]": "RBRACK"}
+PUNCT: Dict[str, str] = {"(": "LPAR", ")": "RPAR", ",": "COMMA", "[": "LBRACK", "]": "RBRACK"}
 
 
 def keywords() -> Set[str]:
@@ -75,17 +91,17 @@ def _eof(pos: int, line: int) -> Tok:
 # ═════════════════════════════════════════════
 
 _SPEC: List[Tuple[str, str]] = [
-    ("NUM",   r"\d+\.\d+|\d+"),
-    ("STR",   r'"[^"\n]*"'),
-    ("CMP",   r"<=|>=|==|!="),
-    ("EQ",    r"="),
-    ("OP",    r"[-+*/<>]"),
-    ("LPAR",  r"\("),
-    ("RPAR",  r"\)"),
+    ("NUM", r"\d+\.\d+|\d+"),
+    ("STR", r'"[^"\n]*"'),
+    ("CMP", r"<=|>=|==|!="),
+    ("EQ", r"="),
+    ("OP", r"[-+*/<>]"),
+    ("LPAR", r"\("),
+    ("RPAR", r"\)"),
     ("LBRACK", r"\["),
     ("RBRACK", r"\]"),
     ("COMMA", r","),
-    ("NAME",  r"[A-Za-z_]\w*"),
+    ("NAME", r"[A-Za-z_]\w*"),
 ]
 _MASTER = re.compile("|".join(f"(?P<{k}>{p})" for k, p in _SPEC))
 
@@ -101,9 +117,12 @@ def lex_regex_master(src: str) -> LexOut:
     while i < n:
         ch = src[i]
         if ch == "\n":
-            line += 1; i += 1; continue
+            line += 1
+            i += 1
+            continue
         if ch in SPACE:
-            i += 1; continue
+            i += 1
+            continue
         if ch == "#":
             while i < n and src[i] != "\n":
                 i += 1
@@ -119,7 +138,7 @@ def lex_regex_master(src: str) -> LexOut:
             out.fail = Fail("lex", defect, i, line)
             return out
 
-        kind, text = m.lastgroup, m.group()
+        kind, text = cast(str, m.lastgroup), m.group()  # every alternative is named
         if kind == "OP" and text in "<>":
             kind = cmp_kind("OP")
         if kind == "NAME" and text in kw:
@@ -155,9 +174,12 @@ def lex_handrolled(src: str) -> LexOut:
         ch = src[i]
 
         if ch == "\n":
-            line += 1; i += 1; continue
+            line += 1
+            i += 1
+            continue
         if ch in SPACE:
-            i += 1; continue
+            i += 1
+            continue
         if ch == "#":
             while i < n and src[i] != "\n":
                 i += 1
@@ -181,8 +203,7 @@ def lex_handrolled(src: str) -> LexOut:
             while i < n and (src[i].isalnum() or src[i] == "_"):
                 i += 1
             text = src[start:i]
-            out.toks.append(
-                Tok("KW" if text in kw else "NAME", text, start, line))
+            out.toks.append(Tok("KW" if text in kw else "NAME", text, start, line))
             continue
 
         # string: run to the closing quote, and say so if there isn't one
@@ -198,7 +219,7 @@ def lex_handrolled(src: str) -> LexOut:
             continue
 
         # two-character comparisons, then one-character ones
-        pair = src[i:i + 2]
+        pair = src[i : i + 2]
         if pair in _TWO_CHAR:
             out.toks.append(Tok("CMP", pair, start, line))
             i += 2
@@ -231,17 +252,28 @@ def lex_handrolled(src: str) -> LexOut:
 # L3 — character classes and a transition table
 # ═════════════════════════════════════════════
 
+
 def _cls(ch: str) -> str:
-    if ch.isdigit():          return "d"
-    if ch.isalpha() or ch == "_": return "a"
-    if ch in SPACE:           return "s"
-    if ch == "\n":            return "n"
-    if ch == '"':             return "q"
-    if ch == "#":             return "h"
-    if ch == ".":             return "."
-    if ch in "<>=!":          return "c"   # can begin a comparison
-    if ch in "+-*/":          return "o"
-    if ch in "(),[]":         return "p"
+    if ch.isdigit():
+        return "d"
+    if ch.isalpha() or ch == "_":
+        return "a"
+    if ch in SPACE:
+        return "s"
+    if ch == "\n":
+        return "n"
+    if ch == '"':
+        return "q"
+    if ch == "#":
+        return "h"
+    if ch == ".":
+        return "."
+    if ch in "<>=!":
+        return "c"  # can begin a comparison
+    if ch in "+-*/":
+        return "o"
+    if ch in "(),[]":
+        return "p"
     return "?"
 
 
@@ -249,15 +281,21 @@ def _cls(ch: str) -> str:
 #: action: "" keep scanning, "emit:<KIND>" accept before this char
 _TABLE: Dict[str, Dict[str, Tuple[str, str]]] = {
     "start": {
-        "d": ("num", ""), "a": ("name", ""), "q": ("str", ""),
-        "c": ("cmp", ""), "o": ("op", ""),   "p": ("punct", ""),
-        "s": ("start", ""), "n": ("start", ""), "h": ("comment", ""),
+        "d": ("num", ""),
+        "a": ("name", ""),
+        "q": ("str", ""),
+        "c": ("cmp", ""),
+        "o": ("op", ""),
+        "p": ("punct", ""),
+        "s": ("start", ""),
+        "n": ("start", ""),
+        "h": ("comment", ""),
     },
-    "num":  {"d": ("num", ""), ".": ("numdot", "")},
+    "num": {"d": ("num", ""), ".": ("numdot", "")},
     "numdot": {"d": ("numfrac", "")},
     "numfrac": {"d": ("numfrac", "")},
     "name": {"a": ("name", ""), "d": ("name", "")},
-    "cmp":  {"c": ("cmp2", "")},
+    "cmp": {"c": ("cmp2", "")},
 }
 
 
@@ -279,9 +317,12 @@ def lex_dfa(src: str) -> LexOut:
         k = _cls(ch)
 
         if k == "n":
-            line += 1; i += 1; continue
+            line += 1
+            i += 1
+            continue
         if k == "s":
-            i += 1; continue
+            i += 1
+            continue
         if k == "h":
             while i < n and src[i] != "\n":
                 i += 1
@@ -321,7 +362,7 @@ def lex_dfa(src: str) -> LexOut:
         if k == "c":
             # one class, two outcomes: pair, or the bare character
             if i + 1 < n and src[i + 1] == "=":
-                out.toks.append(Tok("CMP", src[i:i + 2], start, line))
+                out.toks.append(Tok("CMP", src[i : i + 2], start, line))
                 i += 2
             elif ch == "=":
                 out.toks.append(Tok("EQ", ch, start, line))
@@ -353,8 +394,7 @@ def lex_dfa(src: str) -> LexOut:
             return out
         else:
             text = src[start:i]
-            out.toks.append(
-                Tok("KW" if text in kw else "NAME", text, start, line))
+            out.toks.append(Tok("KW" if text in kw else "NAME", text, start, line))
 
     out.toks.append(_eof(i, line))
     return out
@@ -365,11 +405,22 @@ def lex_dfa(src: str) -> LexOut:
 # ═════════════════════════════════════════════
 
 _OPERATORS: Dict[str, str] = {
-    "<=": "CMP", ">=": "CMP", "==": "CMP", "!=": "CMP",
-    "<": "OP", ">": "OP",
-    "+": "OP", "-": "OP", "*": "OP", "/": "OP",
-    "=": "EQ", "(": "LPAR", ")": "RPAR", ",": "COMMA",
-    "[": "LBRACK", "]": "RBRACK",
+    "<=": "CMP",
+    ">=": "CMP",
+    "==": "CMP",
+    "!=": "CMP",
+    "<": "OP",
+    ">": "OP",
+    "+": "OP",
+    "-": "OP",
+    "*": "OP",
+    "/": "OP",
+    "=": "EQ",
+    "(": "LPAR",
+    ")": "RPAR",
+    ",": "COMMA",
+    "[": "LBRACK",
+    "]": "RBRACK",
 }
 
 
@@ -413,9 +464,12 @@ def lex_trie(src: str) -> LexOut:
     while i < n:
         ch = src[i]
         if ch == "\n":
-            line += 1; i += 1; continue
+            line += 1
+            i += 1
+            continue
         if ch in SPACE:
-            i += 1; continue
+            i += 1
+            continue
         if ch == "#":
             while i < n and src[i] != "\n":
                 i += 1
@@ -429,21 +483,22 @@ def lex_trie(src: str) -> LexOut:
             if j < 0 or (0 <= nl < j):
                 out.fail = Fail("lex", unterminated("unbounded"), start, line)
                 return out
-            out.toks.append(Tok("STR", src[i:j + 1], start, line))
+            out.toks.append(Tok("STR", src[i : j + 1], start, line))
             i = j + 1
             continue
 
         if ch.isdigit():
             m = re.compile(r"\d+\.\d+|\d+").match(src, i)
+            assert m is not None  # ch is a digit, so this matches
             out.toks.append(Tok("NUM", m.group(), start, line))
             i = m.end()
             continue
 
         if ch.isalpha() or ch == "_":
             m = re.compile(r"[A-Za-z_]\w*").match(src, i)
+            assert m is not None  # ch is a letter or underscore, so this matches
             text = m.group()
-            out.toks.append(
-                Tok("KW" if text in kw else "NAME", text, start, line))
+            out.toks.append(Tok("KW" if text in kw else "NAME", text, start, line))
             i = m.end()
             continue
 
@@ -473,10 +528,9 @@ def lex_trie(src: str) -> LexOut:
 
 LEXERS = {
     "L1-regex-master": lex_regex_master,
-    "L2-handrolled":   lex_handrolled,
-    "L3-dfa":          lex_dfa,
-    "L4-trie":         lex_trie,
+    "L2-handrolled": lex_handrolled,
+    "L3-dfa": lex_dfa,
+    "L4-trie": lex_trie,
 }
 
-__all__ = ["LEXERS", "KEYWORDS", "lex_regex_master", "lex_handrolled",
-           "lex_dfa", "lex_trie"]
+__all__ = ["LEXERS", "KEYWORDS", "lex_regex_master", "lex_handrolled", "lex_dfa", "lex_trie"]

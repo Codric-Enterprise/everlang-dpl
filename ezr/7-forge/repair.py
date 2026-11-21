@@ -65,7 +65,7 @@ from contract import Fail, LexOut, ParseOut
 HERE = os.path.dirname(os.path.abspath(__file__))
 LEDGER_PATH = os.path.join(HERE, "repairs.json")
 
-PI = 3                    # SEMANTICS.md 1.1 — floor(pi)
+PI = 3  # SEMANTICS.md 1.1 — floor(pi)
 TWO_THIRDS = 2.0 / 3.0
 
 
@@ -73,26 +73,28 @@ TWO_THIRDS = 2.0 / 3.0
 # Findings
 # ═════════════════════════════════════════════
 
+
 @dataclass
 class Defect:
     """One component, one input, one thing that should not happen."""
+
     component: str
-    stage: str                    # "lex" | "parse"
+    stage: str  # "lex" | "parse"
     src: str
-    kind: str                     # "raises"
+    kind: str  # "raises"
     detail: str
     target: Optional[str] = None  # verdict the others agree on
     witnesses: List[str] = field(default_factory=list)
 
     def __str__(self) -> str:
-        return (f"{self.component} {self.kind} on {self.src[:40]!r} "
-                f"-> {self.detail}")
+        return f"{self.component} {self.kind} on {self.src[:40]!r} " f"-> {self.detail}"
 
 
 @dataclass
 class Candidate:
     """A proposed repair, and what it would cost."""
-    rule: str                     # "R1" | "R2"
+
+    rule: str  # "R1" | "R2"
     component: str
     stage: str
     defect_class: str
@@ -115,6 +117,7 @@ class Outcome:
 # R1 — the totality shield
 # ═════════════════════════════════════════════
 
+
 def shield(fn: Callable, stage: str, defect_class: str) -> Callable:
     """Wrap a component so an escaping exception becomes a refusal.
 
@@ -123,6 +126,7 @@ def shield(fn: Callable, stage: str, defect_class: str) -> Callable:
     from its unshielded self. That is what makes the verification below
     meaningful rather than circular.
     """
+
     def shielded(arg):
         try:
             return fn(arg)
@@ -131,11 +135,13 @@ def shield(fn: Callable, stage: str, defect_class: str) -> Callable:
             return LexOut(fail=f) if stage == "lex" else ParseOut(fail=f)
 
     shielded.__name__ = getattr(fn, "__name__", "component") + "_shielded"
-    shielded.__doc__ = (f"Shielded by repair.py: an escaping exception "
-                        f"becomes Fail({stage}/{defect_class}). "
-                        f"Original: {getattr(fn, '__doc__', None)}")
-    shielded._unshielded = fn          # conservation: the original survives
-    shielded._shield = (stage, defect_class)
+    shielded.__doc__ = (
+        f"Shielded by repair.py: an escaping exception "
+        f"becomes Fail({stage}/{defect_class}). "
+        f"Original: {getattr(fn, '__doc__', None)}"
+    )
+    setattr(shielded, "_unshielded", fn)  # conservation: the original survives
+    setattr(shielded, "_shield", (stage, defect_class))
     return shielded
 
 
@@ -146,6 +152,7 @@ def is_shielded(fn: Callable) -> bool:
 # ═════════════════════════════════════════════
 # The ledger — nothing is deleted
 # ═════════════════════════════════════════════
+
 
 class RepairLedger:
     def __init__(self, path: str = LEDGER_PATH):
@@ -164,39 +171,43 @@ class RepairLedger:
 
     def save(self) -> None:
         with open(self.path, "w") as fh:
-            json.dump({
-                "note": "Repairs the forge made to its own front ends. "
-                        "Each entry records what raised, what the other "
-                        "witnesses agreed the answer should be, and the "
-                        "input that exposed it. Nothing here is deleted; "
-                        "a superseded repair is marked, not removed.",
-                "repairs": self.entries,
-            }, fh, indent=2)
+            json.dump(
+                {
+                    "note": "Repairs the forge made to its own front ends. "
+                    "Each entry records what raised, what the other "
+                    "witnesses agreed the answer should be, and the "
+                    "input that exposed it. Nothing here is deleted; "
+                    "a superseded repair is marked, not removed.",
+                    "repairs": self.entries,
+                },
+                fh,
+                indent=2,
+            )
             fh.write("\n")
 
-    def record(self, defect: Defect, cand: Candidate,
-               generation: int) -> None:
-        self.entries.append({
-            "generation": generation,
-            "rule": cand.rule,
-            "component": cand.component,
-            "stage": cand.stage,
-            "defect_class": cand.defect_class,
-            "raised": defect.detail,
-            "exposed_by": defect.src,
-            "agreed_by": defect.witnesses,
-            "target_verdict": defect.target,
-            "rationale": cand.rationale,
-            "superseded": False,
-        })
+    def record(self, defect: Defect, cand: Candidate, generation: int) -> None:
+        self.entries.append(
+            {
+                "generation": generation,
+                "rule": cand.rule,
+                "component": cand.component,
+                "stage": cand.stage,
+                "defect_class": cand.defect_class,
+                "raised": defect.detail,
+                "exposed_by": defect.src,
+                "agreed_by": defect.witnesses,
+                "target_verdict": defect.target,
+                "rationale": cand.rationale,
+                "superseded": False,
+            }
+        )
         self.save()
 
     @property
     def active(self) -> List[dict]:
         return [e for e in self.entries if not e.get("superseded")]
 
-    def apply(self, registry: Dict[str, Callable], stage: str
-              ) -> Dict[str, Callable]:
+    def apply(self, registry: Dict[str, Callable], stage: str) -> Dict[str, Callable]:
         """Re-install every recorded shield for this stage.
 
         Repairs live on disk, not in memory, so a fix found in one run
@@ -219,6 +230,7 @@ class RepairLedger:
 # The loop
 # ═════════════════════════════════════════════
 
+
 class SelfRepair:
     """detect -> localise -> synthesise -> verify -> adopt -> record.
 
@@ -228,14 +240,17 @@ class SelfRepair:
     forge itself and therefore testable on its own.
     """
 
-    def __init__(self, lexers: Dict[str, Callable],
-                 parsers: Dict[str, Callable],
-                 verdicts: Callable[[str], Dict[str, Optional[str]]],
-                 ledger: Optional[RepairLedger] = None,
-                 verbose: bool = True):
+    def __init__(
+        self,
+        lexers: Dict[str, Callable],
+        parsers: Dict[str, Callable],
+        verdicts: Callable[[str], Dict[str, Optional[str]]],
+        ledger: Optional[RepairLedger] = None,
+        verbose: bool = True,
+    ):
         self.lexers = lexers
         self.parsers = parsers
-        self.verdicts = verdicts       # src -> {pair_name: verdict|None}
+        self.verdicts = verdicts  # src -> {pair_name: verdict|None}
         self.ledger = ledger or RepairLedger()
         self.verbose = verbose
 
@@ -260,19 +275,21 @@ class SelfRepair:
             for name in self.lexers:
                 row = {k for k in table if k.split(" x ")[0] == name}
                 if row and row <= crashed and not (crashed - row):
-                    found.setdefault((name, "lex"), self._defect(
-                        name, "lex", src, alive))
+                    found.setdefault((name, "lex"), self._defect(name, "lex", src, alive))
             for name in self.parsers:
                 col = {k for k in table if k.split(" x ")[1] == name}
                 if col and col <= crashed and not (crashed - col):
-                    found.setdefault((name, "parse"), self._defect(
-                        name, "parse", src, alive))
+                    found.setdefault((name, "parse"), self._defect(name, "parse", src, alive))
         return list(found.values())
 
-    def _defect(self, name: str, stage: str, src: str,
-                alive: Dict[str, str]) -> Defect:
-        d = Defect(component=name, stage=stage, src=src,
-                   kind="raises", detail="exception escaped the component")
+    def _defect(self, name: str, stage: str, src: str, alive: Dict[str, str]) -> Defect:
+        d = Defect(
+            component=name,
+            stage=stage,
+            src=src,
+            kind="raises",
+            detail="exception escaped the component",
+        )
         target, who = self._consensus(alive)
         d.target, d.witnesses = target, who
         return d
@@ -293,25 +310,31 @@ class SelfRepair:
     # ── synthesise ──
     def synthesize(self, d: Defect) -> List[Candidate]:
         if d.target is None:
-            return []                       # withhold: no agreed target
+            return []  # withhold: no agreed target
         defect_class = self._class_of(d.target)
         if defect_class is None:
             return []
 
         registry = self.lexers if d.stage == "lex" else self.parsers
 
-        def install(name=d.component, stage=d.stage, dc=defect_class,
-                    reg=registry):
+        def install(name=d.component, stage=d.stage, dc=defect_class, reg=registry):
             reg[name] = shield(reg[name], stage, dc)
 
-        return [Candidate(
-            rule="R1", component=d.component, stage=d.stage,
-            defect_class=defect_class,
-            rationale=(f"{len(d.witnesses)} of the surviving front ends "
-                       f"agree the answer is {d.target!r}; the shield "
-                       f"makes {d.component} refuse with that defect "
-                       f"class instead of raising, restoring G1"),
-            install=install)]
+        return [
+            Candidate(
+                rule="R1",
+                component=d.component,
+                stage=d.stage,
+                defect_class=defect_class,
+                rationale=(
+                    f"{len(d.witnesses)} of the surviving front ends "
+                    f"agree the answer is {d.target!r}; the shield "
+                    f"makes {d.component} refuse with that defect "
+                    f"class instead of raising, restoring G1"
+                ),
+                install=install,
+            )
+        ]
 
     @staticmethod
     def _class_of(verdict: str) -> Optional[str]:
@@ -322,13 +345,12 @@ class SelfRepair:
             # rather than guessed at.
             return None
         try:
-            return verdict[verdict.index("/") + 1:verdict.index("]")]
+            return verdict[verdict.index("/") + 1 : verdict.index("]")]
         except ValueError:
             return None
 
     # ── verify ──
-    def verify(self, cand: Candidate, d: Defect,
-               regression: Sequence[str]) -> Outcome:
+    def verify(self, cand: Candidate, d: Defect, regression: Sequence[str]) -> Outcome:
         """Adopt only if it fixes this and disturbs nothing else."""
         before = {src: self.verdicts(src) for src in regression}
         cand.install()
@@ -340,16 +362,16 @@ class SelfRepair:
             for pair, was in before[src].items():
                 now = after[src].get(pair)
                 if was is not None and now != was:
-                    collateral.append(f"{pair} on {src[:30]!r}: "
-                                      f"{was[:28]!r} -> "
-                                      f"{(now or 'crash')[:28]!r}")
+                    collateral.append(
+                        f"{pair} on {src[:30]!r}: " f"{was[:28]!r} -> " f"{(now or 'crash')[:28]!r}"
+                    )
         return Outcome(candidate=cand, fixed=fixed, collateral=collateral)
 
     # ── the whole thing ──
-    def run(self, inputs: Sequence[str], regression: Sequence[str],
-            generation: int = 0) -> Dict[str, Any]:
-        report: Dict[str, Any] = {"defects": [], "adopted": [],
-                                  "withheld": [], "rejected": []}
+    def run(
+        self, inputs: Sequence[str], regression: Sequence[str], generation: int = 0
+    ) -> Dict[str, Any]:
+        report: Dict[str, Any] = {"defects": [], "adopted": [], "withheld": [], "rejected": []}
         for d in self.scan(inputs):
             report["defects"].append(str(d))
             if self.verbose:
@@ -357,9 +379,11 @@ class SelfRepair:
 
             cands = self.synthesize(d)
             if not cands:
-                why = ("no agreed target among the survivors"
-                       if d.target is None else
-                       "the others accept it; a shield cannot build a tree")
+                why = (
+                    "no agreed target among the survivors"
+                    if d.target is None
+                    else "the others accept it; a shield cannot build a tree"
+                )
                 report["withheld"].append(f"{d.component}: {why}")
                 if self.verbose:
                     print(f"  WITHHELD  {d.component} — {why}")
@@ -370,20 +394,35 @@ class SelfRepair:
                 if out.adopted:
                     self.ledger.record(d, cand, generation)
                     report["adopted"].append(
-                        f"{cand.rule} {cand.component} -> "
-                        f"refuses with {cand.defect_class}")
+                        f"{cand.rule} {cand.component} -> " f"refuses with {cand.defect_class}"
+                    )
                     if self.verbose:
-                        print(f"  ADOPTED   {cand.rule} {cand.component} "
-                              f"-> refuses with {cand.defect_class}")
+                        print(
+                            f"  ADOPTED   {cand.rule} {cand.component} "
+                            f"-> refuses with {cand.defect_class}"
+                        )
                     break
-                why = (f"changed {len(out.collateral)} other verdicts"
-                       if out.collateral else "did not fix it")
+                why = (
+                    f"changed {len(out.collateral)} other verdicts"
+                    if out.collateral
+                    else "did not fix it"
+                )
                 report["rejected"].append(f"{cand.component}: {why}")
                 if self.verbose:
-                    print(f"  REJECTED  {cand.component} — "
-                          f"{len(out.collateral)} collateral changes")
+                    print(
+                        f"  REJECTED  {cand.component} — "
+                        f"{len(out.collateral)} collateral changes"
+                    )
         return report
 
 
-__all__ = ["Defect", "Candidate", "Outcome", "SelfRepair", "RepairLedger",
-           "shield", "is_shielded", "PI"]
+__all__ = [
+    "Defect",
+    "Candidate",
+    "Outcome",
+    "SelfRepair",
+    "RepairLedger",
+    "shield",
+    "is_shielded",
+    "PI",
+]

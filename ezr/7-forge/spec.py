@@ -33,7 +33,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TABLE_PATH = os.path.join(HERE, "ratified.json")
@@ -44,6 +44,7 @@ UNRATIFIED = None
 @dataclass
 class Question:
     """An open point in the language, and the ruling if one exists."""
+
     key: str
     asks: str
     answer: Any = UNRATIFIED
@@ -60,20 +61,13 @@ class Question:
 #: divergence on anything outside this list is escalated rather than
 #: guessed at — see forge.py.
 QUESTIONS: Dict[str, str] = {
-    "cmp_kind":
-        "Which token kind carries a bare '<' or '>'?",
-    "unterminated_string_defect":
-        "Which binding defect classifies a string with no closing quote?",
-    "reserved_words":
-        "Which words may an EZR program not use as a name?",
-    "multi_definition":
-        "May one source text carry more than one definition?",
-    "chained_comparison":
-        "Does 'a < b < c' parse?",
-    "trailing_comma":
-        "May an argument or parameter list end with a comma?",
-    "trailing_expression":
-        "May a run of definitions be followed by an expression?",
+    "cmp_kind": "Which token kind carries a bare '<' or '>'?",
+    "unterminated_string_defect": "Which binding defect classifies a string with no closing quote?",
+    "reserved_words": "Which words may an EZR program not use as a name?",
+    "multi_definition": "May one source text carry more than one definition?",
+    "chained_comparison": "Does 'a < b < c' parse?",
+    "trailing_comma": "May an argument or parameter list end with a comma?",
+    "trailing_expression": "May a run of definitions be followed by an expression?",
 }
 
 
@@ -102,12 +96,16 @@ class Spec:
     def save(self) -> None:
         payload = {
             "note": "Written by the forge. Each entry is a question the "
-                    "language had left open and the generation that "
-                    "settled it.",
+            "language had left open and the generation that "
+            "settled it.",
             "questions": {
-                k: {"asks": q.asks, "answer": q.answer,
-                    "generation": q.generation, "witnesses": q.witnesses,
-                    "rationale": q.rationale}
+                k: {
+                    "asks": q.asks,
+                    "answer": q.answer,
+                    "generation": q.generation,
+                    "witnesses": q.witnesses,
+                    "rationale": q.rationale,
+                }
                 for k, q in sorted(self.questions.items())
             },
         }
@@ -124,8 +122,9 @@ class Spec:
             return native
         return q.answer
 
-    def ratify(self, key: str, answer: Any, generation: int,
-               witnesses: List[str], rationale: str) -> None:
+    def ratify(
+        self, key: str, answer: Any, generation: int, witnesses: List[str], rationale: str
+    ) -> None:
         q = self.questions.setdefault(key, Question(key, QUESTIONS.get(key, "")))
         q.answer = answer
         q.generation = generation
@@ -154,9 +153,8 @@ SPEC = Spec()
 
 
 def reload_spec() -> Spec:
-    SPEC.__init__(SPEC.path)
+    Spec.__init__(SPEC, SPEC.path)
     return SPEC
 
 
-__all__ = ["SPEC", "Spec", "Question", "QUESTIONS", "UNRATIFIED",
-           "reload_spec", "TABLE_PATH"]
+__all__ = ["SPEC", "Spec", "Question", "QUESTIONS", "UNRATIFIED", "reload_spec", "TABLE_PATH"]
