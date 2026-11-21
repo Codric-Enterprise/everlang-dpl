@@ -82,6 +82,37 @@ KEYWORDS = _NATIVE_KEYWORDS
 SPACE = " \t\r"
 
 
+def _begin(src: str) -> Tuple[Set[str], LexOut, int, int, int]:
+    """A hand scanner's starting state: the reserved words, an empty
+    result, the length, and position 0 on line 1."""
+    return keywords(), LexOut(), len(src), 0, 1
+
+
+def _blank(src: str, i: int, line: int) -> Tuple[int, int]:
+    """Skip a run of spaces, newlines and `#` comments from `i`.
+
+    Returns where the next token can start and the line it is on. L1,
+    L2 and L4 each carried a character-for-character copy of this
+    loop, which made their agreement about blanks and comments
+    agreement by copying; it is stated once now. L3's DFA still reads
+    blanks through its own transition table.
+    """
+    n = len(src)
+    while i < n:
+        ch = src[i]
+        if ch == "\n":
+            line += 1
+            i += 1
+        elif ch in SPACE:
+            i += 1
+        elif ch == "#":
+            while i < n and src[i] != "\n":
+                i += 1
+        else:
+            break
+    return i, line
+
+
 def _eof(pos: int, line: int) -> Tok:
     return Tok("EOF", "", pos, line)
 
@@ -110,23 +141,12 @@ def lex_regex_master(src: str) -> LexOut:
     """Longest match by alternation order. Ordering is the whole
     algorithm: CMP precedes OP so `<=` is not read as `<` then `=`,
     and NUM precedes NAME so `1x` is not read as one identifier."""
-    kw = keywords()
-    out = LexOut()
-    i, line, n = 0, 1, len(src)
-
-    while i < n:
+    kw, out, n, i, line = _begin(src)
+    while True:
+        i, line = _blank(src, i, line)
+        if i >= n:
+            break
         ch = src[i]
-        if ch == "\n":
-            line += 1
-            i += 1
-            continue
-        if ch in SPACE:
-            i += 1
-            continue
-        if ch == "#":
-            while i < n and src[i] != "\n":
-                i += 1
-            continue
 
         m = _MASTER.match(src, i)
         if not m:
@@ -166,24 +186,12 @@ def lex_handrolled(src: str) -> LexOut:
     files both under CMP. That is a design consequence, not a decision
     taken to match or to differ from anyone else.
     """
-    kw = keywords()
-    out = LexOut()
-    i, line, n = 0, 1, len(src)
-
-    while i < n:
+    kw, out, n, i, line = _begin(src)
+    while True:
+        i, line = _blank(src, i, line)
+        if i >= n:
+            break
         ch = src[i]
-
-        if ch == "\n":
-            line += 1
-            i += 1
-            continue
-        if ch in SPACE:
-            i += 1
-            continue
-        if ch == "#":
-            while i < n and src[i] != "\n":
-                i += 1
-            continue
 
         start = i
 
@@ -457,23 +465,12 @@ def lex_trie(src: str) -> LexOut:
     that; it is inherited, and inheritance is exactly what makes a
     witness dependent rather than independent.
     """
-    kw = keywords()
-    out = LexOut()
-    i, line, n = 0, 1, len(src)
-
-    while i < n:
+    kw, out, n, i, line = _begin(src)
+    while True:
+        i, line = _blank(src, i, line)
+        if i >= n:
+            break
         ch = src[i]
-        if ch == "\n":
-            line += 1
-            i += 1
-            continue
-        if ch in SPACE:
-            i += 1
-            continue
-        if ch == "#":
-            while i < n and src[i] != "\n":
-                i += 1
-            continue
 
         start = i
 

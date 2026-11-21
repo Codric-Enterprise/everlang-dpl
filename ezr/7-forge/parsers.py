@@ -25,7 +25,7 @@ Codric Enterprise · Ricky (Dreid) · 2026
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from contract import Bin, Bool, Call, Def, Fail, If, Let, Lst, N, Num, ParseOut, Prog, Str, Var
 from spec import SPEC
@@ -66,23 +66,84 @@ class _Program:
     forge is only worth running if the witnesses differ where the
     question is.
 
-    The three classes that mix this in supply peek/take/want/at_kind,
-    a `fndef`, and a `top()` that parses one expression.
+    The three classes that mix this in supply only `top()`, which
+    parses one expression; the token cursor, `fndef` and the
+    conditional are here.
     """
 
-    if TYPE_CHECKING:  # what each parser mixing this in supplies; no runtime effect
+    def __init__(self, toks) -> None:
+        self.t, self.i = toks, 0
 
-        def peek(self) -> Any: ...
+    # ── the token cursor. Reading a stream is not where parsers differ,
+    # and three identical copies of it were agreement by copying.
 
-        def take(self) -> Any: ...
+    def peek(self):
+        return self.t[self.i]
 
-        def want(self, kind: str, text: Optional[str] = None) -> Any: ...
+    def at_kind(self, kind, text=None) -> bool:
+        tk = self.peek()
+        return tk.kind == kind and (text is None or tk.text == text)
 
-        def at_kind(self, kind: str, text: Optional[str] = None) -> bool: ...
+    def take(self):
+        tk = self.t[self.i]
+        if tk.kind != "EOF":
+            self.i += 1
+        return tk
 
-        def fndef(self) -> Def: ...
+    def want(self, kind, text=None):
+        if not self.at_kind(kind, text):
+            raise _refuse_at(self.peek())
+        return self.take()
 
-        def top(self) -> N: ...
+    def top(self) -> N:
+        """One whole expression. Each parser supplies its own."""
+        raise NotImplementedError
+
+    def fndef(self) -> Def:
+        self.want("KW", "def")
+        name = self.want("NAME").text
+        self.want("LPAR")
+        params = self.name_list()
+        self.want("RPAR")
+        self.want("EQ")
+        return Def(name, params, self.top())
+
+    def if_expr(self) -> N:
+        """`if c then t else e`: an alternative of expr in the published
+        grammar, never an operand, so every parser reaches it from its
+        expression entry and none from its operand level."""
+        self.want("KW", "if")
+        c = self.top()
+        self.want("KW", "then")
+        t = self.top()
+        self.want("KW", "else")
+        return If(c, t, self.top())
+
+    def operand_of(self, tk) -> Optional[N]:
+        """The operands P2 and P3 read identically, or None. `tk` has
+        already been taken."""
+        if tk.kind == "NUM":
+            return _num_node(tk.text)
+        if tk.kind == "STR":
+            return Str(tk.text[1:-1])
+        if tk.kind == "KW" and tk.text in ("true", "false"):
+            return Bool(tk.text == "true")
+        if tk.kind == "LBRACK":
+            items = self.expr_list("RBRACK")
+            self.want("RBRACK")
+            return Lst(items)
+        if tk.kind == "LPAR":
+            node = self.top()
+            self.want("RPAR")
+            return node
+        if tk.kind == "NAME":
+            if self.peek().kind == "LPAR":
+                self.take()
+                args = self.expr_list()
+                self.want("RPAR")
+                return Call(tk.text, args)
+            return Var(tk.text)
+        return None
 
     def program(self) -> Prog:
         multi = bool(SPEC.get("multi_definition", False))
@@ -159,51 +220,16 @@ class _Program:
 
 
 class _RD(_Program):
-    def __init__(self, toks):
-        self.t, self.i = toks, 0
-
-    def peek(self):
-        return self.t[self.i]
-
-    def at_kind(self, kind, text=None) -> bool:
-        tk = self.peek()
-        return tk.kind == kind and (text is None or tk.text == text)
-
     def at_text(self, texts) -> bool:
         tk = self.peek()
         return tk.kind != "EOF" and tk.text in texts
 
-    def take(self):
-        tk = self.t[self.i]
-        if tk.kind != "EOF":
-            self.i += 1
-        return tk
-
-    def want(self, kind, text=None):
-        if not self.at_kind(kind, text):
-            raise _refuse_at(self.peek())
-        return self.take()
-
     def top(self) -> N:
         return self.expr()
 
-    def fndef(self) -> Def:
-        self.want("KW", "def")
-        name = self.want("NAME").text
-        self.want("LPAR")
-        params = self.name_list()
-        self.want("RPAR")
-        self.want("EQ")
-        return Def(name, params, self.expr())
-
     def expr(self) -> N:
         if self.at_kind("KW", "if"):
-            self.take()
-            c = self.expr()
-            self.want("KW", "then")
-            t = self.expr()
-            self.want("KW", "else")
-            return If(c, t, self.expr())
+            return self.if_expr()
         if self.at_kind("KW", "let"):
             return self.let_expr()
         return self.compare()
@@ -290,39 +316,8 @@ _PREFIX_BP = 7
 
 
 class _Pratt(_Program):
-    def __init__(self, toks):
-        self.t, self.i = toks, 0
-
-    def peek(self):
-        return self.t[self.i]
-
-    def at_kind(self, kind, text=None) -> bool:
-        tk = self.peek()
-        return tk.kind == kind and (text is None or tk.text == text)
-
     def top(self) -> N:
         return self.expr(0)
-
-    def take(self):
-        tk = self.t[self.i]
-        if tk.kind != "EOF":
-            self.i += 1
-        return tk
-
-    def want(self, kind, text=None):
-        tk = self.peek()
-        if tk.kind != kind or (text is not None and tk.text != text):
-            raise _refuse_at(tk)
-        return self.take()
-
-    def fndef(self) -> Def:
-        self.want("KW", "def")
-        name = self.want("NAME").text
-        self.want("LPAR")
-        params = self.name_list()
-        self.want("RPAR")
-        self.want("EQ")
-        return Def(name, params, self.expr(0))
 
     def expr(self, min_bp: int) -> N:
         # PIPELINE.md: expr := ifexpr | compare. An if is an
@@ -332,12 +327,7 @@ class _Pratt(_Program):
         # comparison whose left side was the conditional. The forge
         # found it; the published grammar settles it.
         if self.at_kind("KW", "if"):
-            self.take()
-            c = self.expr(0)
-            self.want("KW", "then")
-            t = self.expr(0)
-            self.want("KW", "else")
-            return If(c, t, self.expr(0))
+            return self.if_expr()
         if self.at_kind("KW", "let"):
             return self.let_expr()
         return self.operand_expr(min_bp)
@@ -371,30 +361,12 @@ class _Pratt(_Program):
 
     def nud(self) -> N:
         tk = self.take()
-        if tk.kind == "NUM":
-            return _num_node(tk.text)
-        if tk.kind == "STR":
-            return Str(tk.text[1:-1])
-        if tk.kind == "KW" and tk.text in ("true", "false"):
-            return Bool(tk.text == "true")
-        if tk.kind == "LBRACK":
-            items = self.expr_list("RBRACK")
-            self.want("RBRACK")
-            return Lst(items)
-        if tk.kind == "LPAR":
-            node = self.expr(0)
-            self.want("RPAR")
-            return node
         if tk.text == "-" and tk.kind != "EOF":
             return Bin("-", Num(0), self.operand_expr(_PREFIX_BP))
-        if tk.kind == "NAME":
-            if self.peek().kind == "LPAR":
-                self.take()
-                args = self.expr_list()
-                self.want("RPAR")
-                return Call(tk.text, args)
-            return Var(tk.text)
-        raise _refuse_at(tk)
+        node = self.operand_of(tk)
+        if node is None:
+            raise _refuse_at(tk)
+        return node
 
 
 def parse_pratt(toks) -> ParseOut:
@@ -429,39 +401,8 @@ class _Yard(_Program):
     `def` need. The operator stack decides precedence; nothing in the
     call graph does."""
 
-    def __init__(self, toks):
-        self.t, self.i = toks, 0
-
-    def peek(self):
-        return self.t[self.i]
-
-    def at_kind(self, kind, text=None) -> bool:
-        tk = self.peek()
-        return tk.kind == kind and (text is None or tk.text == text)
-
     def top(self) -> N:
         return self.expr()
-
-    def take(self):
-        tk = self.t[self.i]
-        if tk.kind != "EOF":
-            self.i += 1
-        return tk
-
-    def want(self, kind, text=None):
-        tk = self.peek()
-        if tk.kind != kind or (text is not None and tk.text != text):
-            raise _refuse_at(tk)
-        return self.take()
-
-    def fndef(self) -> Def:
-        self.want("KW", "def")
-        name = self.want("NAME").text
-        self.want("LPAR")
-        params = self.name_list()
-        self.want("RPAR")
-        self.want("EQ")
-        return Def(name, params, self.expr())
 
     @staticmethod
     def _reduce(vals: List[N], ops: List[str]) -> None:
@@ -481,12 +422,7 @@ class _Yard(_Program):
         # Same correction as P2, for the same reason: an if is a whole
         # expression, so it never enters the operand stack.
         if self.at_kind("KW", "if"):
-            self.take()
-            c = self.expr()
-            self.want("KW", "then")
-            t = self.expr()
-            self.want("KW", "else")
-            return If(c, t, self.expr())
+            return self.if_expr()
         if self.at_kind("KW", "let"):
             return self.let_expr()
         vals: List[N] = []
@@ -535,28 +471,10 @@ class _Yard(_Program):
 
     def operand(self) -> N:
         tk = self.take()
-        if tk.kind == "NUM":
-            return _num_node(tk.text)
-        if tk.kind == "STR":
-            return Str(tk.text[1:-1])
-        if tk.kind == "KW" and tk.text in ("true", "false"):
-            return Bool(tk.text == "true")
-        if tk.kind == "LBRACK":
-            items = self.expr_list("RBRACK")
-            self.want("RBRACK")
-            return Lst(items)
-        if tk.kind == "LPAR":
-            node = self.expr()
-            self.want("RPAR")
-            return node
-        if tk.kind == "NAME":
-            if self.peek().kind == "LPAR":
-                self.take()
-                args = self.expr_list()
-                self.want("RPAR")
-                return Call(tk.text, args)
-            return Var(tk.text)
-        raise _refuse_at(tk)
+        node = self.operand_of(tk)
+        if node is None:
+            raise _refuse_at(tk)
+        return node
 
 
 def parse_shunting(toks) -> ParseOut:
