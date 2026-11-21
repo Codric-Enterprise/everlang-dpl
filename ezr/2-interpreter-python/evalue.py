@@ -40,32 +40,32 @@ Codric Enterprise · Ricky (Dreid) · 2026
 from __future__ import annotations
 
 import math
-import re
 import struct
 from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-
 # ─────────────────────────────────────────────
 # Type tags — must match ev_type in evalue.h
 # ─────────────────────────────────────────────
 
+
 class EvType(IntEnum):
-    VOID   = 0
-    BOOL   = 1
-    INT    = 2
-    REAL   = 3
-    TEXT   = 4
-    BLOB   = 5
-    LIST   = 6
+    VOID = 0
+    BOOL = 1
+    INT = 2
+    REAL = 3
+    TEXT = 4
+    BLOB = 5
+    LIST = 6
     RECORD = 7
     UNKNOWN = 8
 
-EV_INLINE_MAX   = 192
-EV_FIELD_NAME   = 64
-EV_CERTAIN      = 256
-EV_SPAN_SOURCE_MAX = 63     # bytes of a Span's source name on the wire
+
+EV_INLINE_MAX = 192
+EV_FIELD_NAME = 64
+EV_CERTAIN = 256
+EV_SPAN_SOURCE_MAX = 63  # bytes of a Span's source name on the wire
 
 
 class NullAtBoundary(ValueError):
@@ -84,6 +84,7 @@ class UnknownValue(LookupError):
 class Span:
     """Where an unknown came from: a source name, a 1-based line and
     column (0 where the source has no lines, e.g. a bare literal)."""
+
     source: str
     line: int = 0
     col: int = 0
@@ -102,6 +103,7 @@ class Span:
 # The variant
 # ─────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class EValue:
     """Unified variant. Immutable — Ever is pure.
@@ -110,17 +112,18 @@ class EValue:
     Composites carry a Python object (bytes / list / dict).
     The ev_tag drives serialisation and cross-language routing.
     """
-    ev_tag:     EvType
-    ev_bool:    bool                = False
-    ev_int:     int                 = 0
-    ev_real:    float               = 0.0
-    ev_text:    str                 = ""
-    ev_blob:    bytes               = b""
-    ev_list:    List["EValue"]      = field(default_factory=list)
-    ev_record:  Dict[str, "EValue"] = field(default_factory=dict)
+
+    ev_tag: EvType
+    ev_bool: bool = False
+    ev_int: int = 0
+    ev_real: float = 0.0
+    ev_text: str = ""
+    ev_blob: bytes = b""
+    ev_list: List["EValue"] = field(default_factory=list)
+    ev_record: Dict[str, "EValue"] = field(default_factory=dict)
     confidence: int = EV_CERTAIN
-    ev_reason:  str                 = ""
-    ev_span:    Optional[Span]      = None
+    ev_reason: str = ""
+    ev_span: Optional[Span] = None
 
     def __post_init__(self) -> None:
         if self.ev_tag == EvType.UNKNOWN:
@@ -173,23 +176,27 @@ class EValue:
         return cls(EvType.BLOB, ev_blob=bytes(v), confidence=conf)
 
     @classmethod
-    def from_list(cls, items: List["EValue"],
-                  conf: int = EV_CERTAIN) -> "EValue":
+    def from_list(cls, items: List["EValue"], conf: int = EV_CERTAIN) -> "EValue":
         return cls(EvType.LIST, ev_list=list(items), confidence=conf)
 
     @classmethod
-    def from_record(cls, fields: Dict[str, "EValue"],
-                    conf: int = EV_CERTAIN) -> "EValue":
+    def from_record(cls, fields: Dict[str, "EValue"], conf: int = EV_CERTAIN) -> "EValue":
         return cls(EvType.RECORD, ev_record=dict(fields), confidence=conf)
 
     # ── predicates ──
 
     @property
-    def is_void(self)      -> bool: return self.ev_tag == EvType.VOID
+    def is_void(self) -> bool:
+        return self.ev_tag == EvType.VOID
+
     @property
-    def is_unknown(self)   -> bool: return self.ev_tag == EvType.UNKNOWN
+    def is_unknown(self) -> bool:
+        return self.ev_tag == EvType.UNKNOWN
+
     @property
-    def is_scalar(self)    -> bool: return self.ev_tag <= EvType.TEXT
+    def is_scalar(self) -> bool:
+        return self.ev_tag <= EvType.TEXT
+
     @property
     def is_composite(self) -> bool:
         return EvType.BLOB <= self.ev_tag <= EvType.RECORD
@@ -214,13 +221,18 @@ class EValue:
                 return self.ev_real == float(other.ev_int)
             return False
         tag = self.ev_tag
-        if tag == EvType.VOID:   return True
-        if tag == EvType.BOOL:   return self.ev_bool == other.ev_bool
-        if tag == EvType.INT:    return self.ev_int == other.ev_int
-        if tag == EvType.REAL:   return math.isclose(self.ev_real,
-                                                      other.ev_real, rel_tol=1e-12)
-        if tag == EvType.TEXT:   return self.ev_text == other.ev_text
-        if tag == EvType.BLOB:   return self.ev_blob == other.ev_blob
+        if tag == EvType.VOID:
+            return True
+        if tag == EvType.BOOL:
+            return self.ev_bool == other.ev_bool
+        if tag == EvType.INT:
+            return self.ev_int == other.ev_int
+        if tag == EvType.REAL:
+            return math.isclose(self.ev_real, other.ev_real, rel_tol=1e-12)
+        if tag == EvType.TEXT:
+            return self.ev_text == other.ev_text
+        if tag == EvType.BLOB:
+            return self.ev_blob == other.ev_blob
         if tag == EvType.LIST:
             if len(self.ev_list) != len(other.ev_list):
                 return False
@@ -228,15 +240,23 @@ class EValue:
         if tag == EvType.RECORD:
             if set(self.ev_record) != set(other.ev_record):
                 return False
-            return all(self.ev_record[k] == other.ev_record[k]
-                       for k in self.ev_record)
+            return all(self.ev_record[k] == other.ev_record[k] for k in self.ev_record)
         return False
 
     def __hash__(self) -> int:
-        return hash((self.ev_tag, self.ev_int, self.ev_real,
-                     self.ev_text, self.ev_blob, self.ev_reason, self.ev_span,
-                     tuple(self.ev_list or []),
-                     tuple(sorted((self.ev_record or {}).items()))))
+        return hash(
+            (
+                self.ev_tag,
+                self.ev_int,
+                self.ev_real,
+                self.ev_text,
+                self.ev_blob,
+                self.ev_reason,
+                self.ev_span,
+                tuple(self.ev_list or []),
+                tuple(sorted((self.ev_record or {}).items())),
+            )
+        )
 
     # ── access ──
 
@@ -252,10 +272,14 @@ class EValue:
         return default
 
     def __len__(self) -> int:
-        if self.ev_tag == EvType.LIST:   return len(self.ev_list)
-        if self.ev_tag == EvType.RECORD: return len(self.ev_record)
-        if self.ev_tag == EvType.BLOB:   return len(self.ev_blob)
-        if self.ev_tag == EvType.TEXT:   return len(self.ev_text or "")
+        if self.ev_tag == EvType.LIST:
+            return len(self.ev_list)
+        if self.ev_tag == EvType.RECORD:
+            return len(self.ev_record)
+        if self.ev_tag == EvType.BLOB:
+            return len(self.ev_blob)
+        if self.ev_tag == EvType.TEXT:
+            return len(self.ev_text or "")
         return 0
 
     def __iter__(self) -> Iterator["EValue"]:
@@ -275,12 +299,18 @@ class EValue:
         than returning None, which would be the null this type refuses."""
         if self.ev_tag == EvType.UNKNOWN:
             raise UnknownValue(self)
-        if self.ev_tag == EvType.VOID:   return None
-        if self.ev_tag == EvType.BOOL:   return self.ev_bool
-        if self.ev_tag == EvType.INT:    return self.ev_int
-        if self.ev_tag == EvType.REAL:   return self.ev_real
-        if self.ev_tag == EvType.TEXT:   return self.ev_text
-        if self.ev_tag == EvType.BLOB:   return self.ev_blob
+        if self.ev_tag == EvType.VOID:
+            return None
+        if self.ev_tag == EvType.BOOL:
+            return self.ev_bool
+        if self.ev_tag == EvType.INT:
+            return self.ev_int
+        if self.ev_tag == EvType.REAL:
+            return self.ev_real
+        if self.ev_tag == EvType.TEXT:
+            return self.ev_text
+        if self.ev_tag == EvType.BLOB:
+            return self.ev_blob
         if self.ev_tag == EvType.LIST:
             return [item.native for item in self.ev_list]
         if self.ev_tag == EvType.RECORD:
@@ -292,12 +322,18 @@ class EValue:
     def describe(self) -> str:
         if self.ev_tag == EvType.UNKNOWN:
             return f"unknown ({self.ev_reason} at {self.ev_span})"
-        if self.ev_tag == EvType.VOID:   return "nothing"
-        if self.ev_tag == EvType.BOOL:   return "true" if self.ev_bool else "false"
-        if self.ev_tag == EvType.INT:    return str(self.ev_int)
-        if self.ev_tag == EvType.REAL:   return f"{self.ev_real:.6g}"
-        if self.ev_tag == EvType.TEXT:   return f'"{self.ev_text}"'
-        if self.ev_tag == EvType.BLOB:   return f"<blob {len(self.ev_blob)} bytes>"
+        if self.ev_tag == EvType.VOID:
+            return "nothing"
+        if self.ev_tag == EvType.BOOL:
+            return "true" if self.ev_bool else "false"
+        if self.ev_tag == EvType.INT:
+            return str(self.ev_int)
+        if self.ev_tag == EvType.REAL:
+            return f"{self.ev_real:.6g}"
+        if self.ev_tag == EvType.TEXT:
+            return f'"{self.ev_text}"'
+        if self.ev_tag == EvType.BLOB:
+            return f"<blob {len(self.ev_blob)} bytes>"
         if self.ev_tag == EvType.LIST:
             return f"<list {len(self.ev_list)} items>"
         if self.ev_tag == EvType.RECORD:
@@ -313,6 +349,7 @@ class EValue:
 # Wire format — must match ev_serialise / ev_deserialise in evalue.c
 # ─────────────────────────────────────────────
 
+
 def serialise(v: EValue) -> bytes:
     """Python EValue → self-describing bytes.
     Same format as the C implementation so either side can decode.
@@ -322,17 +359,23 @@ def serialise(v: EValue) -> bytes:
     192-byte inline text, so the reason is cut to fit after the source.
     """
     if v is None:
-        raise NullAtBoundary("serialise(None): say EValue.unknown(reason, span) "
-                             "or EValue.void()")
+        raise NullAtBoundary(
+            "serialise(None): say EValue.unknown(reason, span) " "or EValue.void()"
+        )
     if not isinstance(v, EValue):
         raise TypeError(f"serialise expects an EValue, got {type(v).__name__}")
     tag = v.ev_tag
     if tag == EvType.UNKNOWN:
         span = _span_of(v)
         src, reason = _unknown_wire_parts(v)
-        return (bytes([EvType.UNKNOWN]) + struct.pack("<H", len(reason)) + reason
-                + bytes([len(src)]) + src
-                + struct.pack("<ii", span.line, span.col))
+        return (
+            bytes([EvType.UNKNOWN])
+            + struct.pack("<H", len(reason))
+            + reason
+            + bytes([len(src)])
+            + src
+            + struct.pack("<ii", span.line, span.col)
+        )
     if tag == EvType.VOID:
         return bytes([EvType.VOID])
     if tag == EvType.BOOL:
@@ -346,8 +389,7 @@ def serialise(v: EValue) -> bytes:
         s = v.ev_text.encode("utf-8")
         return bytes([EvType.TEXT]) + struct.pack("<H", len(s)) + s
     if tag == EvType.BLOB:
-        return bytes([EvType.BLOB]) + struct.pack("<i", len(v.ev_blob)) \
-               + v.ev_blob
+        return bytes([EvType.BLOB]) + struct.pack("<i", len(v.ev_blob)) + v.ev_blob
     if tag == EvType.LIST:
         out = bytes([EvType.LIST]) + struct.pack("<i", len(v.ev_list))
         for item in v.ev_list:
@@ -356,7 +398,7 @@ def serialise(v: EValue) -> bytes:
     if tag == EvType.RECORD:
         out = bytes([EvType.RECORD]) + struct.pack("<i", len(v.ev_record))
         for name, fval in v.ev_record.items():
-            nb = name.encode("utf-8")[:EV_FIELD_NAME - 1]
+            nb = name.encode("utf-8")[: EV_FIELD_NAME - 1]
             out += bytes([len(nb)]) + nb + serialise(fval)
         return out
     raise ValueError(f"unknown tag {tag}")
@@ -406,49 +448,64 @@ def deserialise(buf: bytes, pos: int = 0) -> tuple:
         # UNKNOWN("truncated ..."); Python refuses the buffer instead.
         start = pos - 1
         try:
-            rlen = struct.unpack_from("<H", buf, pos)[0]; pos += 2
+            rlen = struct.unpack_from("<H", buf, pos)[0]
+            pos += 2
             if pos + rlen + 1 > len(buf):
                 raise struct.error("short")
-            reason = buf[pos:pos+rlen].decode("utf-8", errors="replace"); pos += rlen
-            slen = buf[pos]; pos += 1
+            reason = buf[pos : pos + rlen].decode("utf-8", errors="replace")
+            pos += rlen
+            slen = buf[pos]
+            pos += 1
             if pos + slen + 8 > len(buf):
                 raise struct.error("short")
-            source = buf[pos:pos+slen].decode("utf-8", errors="replace"); pos += slen
-            line, col = struct.unpack_from("<ii", buf, pos); pos += 8
+            source = buf[pos : pos + slen].decode("utf-8", errors="replace")
+            pos += slen
+            line, col = struct.unpack_from("<ii", buf, pos)
+            pos += 8
         except struct.error:
             raise ValueError(f"truncated UNKNOWN at offset {start}") from None
         return EValue.unknown(reason, Span(source, line, col)), pos
     if tag == EvType.VOID:
         return EValue.void(), pos
     if tag == EvType.BOOL:
-        v = bool(buf[pos]); pos += 1
+        v = bool(buf[pos])
+        pos += 1
         return EValue.from_bool(v), pos
     if tag == EvType.INT:
-        n = struct.unpack_from("<q", buf, pos)[0]; pos += 8
+        n = struct.unpack_from("<q", buf, pos)[0]
+        pos += 8
         return EValue.from_int(n), pos
     if tag == EvType.REAL:
-        f = struct.unpack_from("<d", buf, pos)[0]; pos += 8
+        f = struct.unpack_from("<d", buf, pos)[0]
+        pos += 8
         return EValue.from_real(f), pos
     if tag == EvType.TEXT:
-        slen = struct.unpack_from("<H", buf, pos)[0]; pos += 2
-        s = buf[pos:pos+slen].decode("utf-8", errors="replace"); pos += slen
+        slen = struct.unpack_from("<H", buf, pos)[0]
+        pos += 2
+        s = buf[pos : pos + slen].decode("utf-8", errors="replace")
+        pos += slen
         return EValue.from_text(s), pos
     if tag == EvType.BLOB:
-        blen = struct.unpack_from("<i", buf, pos)[0]; pos += 4
-        return EValue.from_blob(buf[pos:pos+blen]), pos + blen
+        blen = struct.unpack_from("<i", buf, pos)[0]
+        pos += 4
+        return EValue.from_blob(buf[pos : pos + blen]), pos + blen
     if tag == EvType.LIST:
-        count = struct.unpack_from("<i", buf, pos)[0]; pos += 4
+        count = struct.unpack_from("<i", buf, pos)[0]
+        pos += 4
         items = []
         for _ in range(count):
             item, pos = deserialise(buf, pos)
             items.append(item)
         return EValue.from_list(items), pos
     if tag == EvType.RECORD:
-        nf = struct.unpack_from("<i", buf, pos)[0]; pos += 4
+        nf = struct.unpack_from("<i", buf, pos)[0]
+        pos += 4
         fields = {}
         for _ in range(nf):
-            nlen = buf[pos]; pos += 1
-            name = buf[pos:pos+nlen].decode("utf-8", errors="replace"); pos += nlen
+            nlen = buf[pos]
+            pos += 1
+            name = buf[pos : pos + nlen].decode("utf-8", errors="replace")
+            pos += nlen
             fval, pos = deserialise(buf, pos)
             fields[name] = fval
         return EValue.from_record(fields), pos
@@ -465,8 +522,7 @@ NULLS = {"null", "nil", "None", "NULL", "undefined", "nullptr", ""}
 LITERAL_SPAN = Span("<literal>", 0, 0)
 
 
-def lift_literal(literal: str, conf: int = 120,
-                 span: Optional[Span] = None) -> EValue:
+def lift_literal(literal: str, conf: int = 120, span: Optional[Span] = None) -> EValue:
     """Any source language literal → EValue at intake confidence.
 
     A null spelling in any language becomes UNKNOWN, carrying which
@@ -498,9 +554,13 @@ def lift_literal(literal: str, conf: int = 120,
     return EValue.from_text(s, conf)
 
 
-def lift_sql_row(cols: List[str], vals: List[Optional[str]],
-                 conf: int = EV_CERTAIN, source: str = "sql",
-                 row: int = 0) -> EValue:
+def lift_sql_row(
+    cols: List[str],
+    vals: List[Optional[str]],
+    conf: int = EV_CERTAIN,
+    source: str = "sql",
+    row: int = 0,
+) -> EValue:
     """SQL column names + values → EValue(RECORD).
     Identical structure to ev_from_sql_row in evalue.c.
 
@@ -517,18 +577,20 @@ def lift_sql_row(cols: List[str], vals: List[Optional[str]],
     return EValue.from_record(fields, conf=conf)
 
 
-def lift_html_element(tag: str, attrs: Dict[str, str],
-                      children: Optional[List[EValue]] = None,
-                      conf: int = EV_CERTAIN) -> EValue:
+def lift_html_element(
+    tag: str, attrs: Dict[str, str], children: Optional[List[EValue]] = None, conf: int = EV_CERTAIN
+) -> EValue:
     """HTML element → EValue(RECORD) with tag/attrs/children fields.
     Identical structure to ev_from_html_element in evalue.c.
     """
-    return EValue.from_record({
-        "tag":      EValue.from_text(tag),
-        "attrs":    EValue.from_record(
-                        {k: EValue.from_text(v) for k, v in attrs.items()}),
-        "children": EValue.from_list(children or []),
-    }, conf=conf)
+    return EValue.from_record(
+        {
+            "tag": EValue.from_text(tag),
+            "attrs": EValue.from_record({k: EValue.from_text(v) for k, v in attrs.items()}),
+            "children": EValue.from_list(children or []),
+        },
+        conf=conf,
+    )
 
 
 def lift_python(v: Any, conf: int = EV_CERTAIN, path: str = "$") -> EValue:
@@ -542,20 +604,29 @@ def lift_python(v: Any, conf: int = EV_CERTAIN, path: str = "$") -> EValue:
     through unchanged.
     """
     if v is None:
-        raise NullAtBoundary(f"None at {path}: say EValue.unknown(reason, span) "
-                             f"or EValue.void()")
-    if isinstance(v, EValue): return v
-    if isinstance(v, bool): return EValue.from_bool(v, conf)
-    if isinstance(v, int):  return EValue.from_int(v, conf)
-    if isinstance(v, float):return EValue.from_real(v, conf)
-    if isinstance(v, str):  return EValue.from_text(v, conf)
-    if isinstance(v, bytes):return EValue.from_blob(v, conf)
+        raise NullAtBoundary(
+            f"None at {path}: say EValue.unknown(reason, span) " f"or EValue.void()"
+        )
+    if isinstance(v, EValue):
+        return v
+    if isinstance(v, bool):
+        return EValue.from_bool(v, conf)
+    if isinstance(v, int):
+        return EValue.from_int(v, conf)
+    if isinstance(v, float):
+        return EValue.from_real(v, conf)
+    if isinstance(v, str):
+        return EValue.from_text(v, conf)
+    if isinstance(v, bytes):
+        return EValue.from_blob(v, conf)
     if isinstance(v, list):
-        return EValue.from_list([lift_python(x, path=f"{path}[{i}]")
-                                 for i, x in enumerate(v)], conf)
+        return EValue.from_list(
+            [lift_python(x, path=f"{path}[{i}]") for i, x in enumerate(v)], conf
+        )
     if isinstance(v, dict):
         return EValue.from_record(
-            {str(k): lift_python(vv, path=f"{path}.{k}") for k, vv in v.items()}, conf)
+            {str(k): lift_python(vv, path=f"{path}.{k}") for k, vv in v.items()}, conf
+        )
     return EValue.from_text(str(v), conf)
 
 
@@ -567,11 +638,11 @@ if __name__ == "__main__":
     print("\n=== EValue — Python unified variant type ===\n")
 
     cases = [
-        ("int",    EValue.from_int(42)),
-        ("real",   EValue.from_real(3.14159)),
-        ("bool",   EValue.from_bool(True)),
-        ("text",   EValue.from_text("Codric")),
-        ("void",   EValue.void()),
+        ("int", EValue.from_int(42)),
+        ("real", EValue.from_real(3.14159)),
+        ("bool", EValue.from_bool(True)),
+        ("text", EValue.from_text("Codric")),
+        ("void", EValue.void()),
     ]
     for name, v in cases:
         buf = serialise(v)
@@ -579,7 +650,7 @@ if __name__ == "__main__":
         mark = "✓" if v == back else "✗"
         print(f"  {mark}  {name:6} {v.describe()!r:20} wire={len(buf)}B")
 
-    row = lift_sql_row(["id","name","score"], ["1","Alice","98.6"])
+    row = lift_sql_row(["id", "name", "score"], ["1", "Alice", "98.6"])
     print(f"\n  SQL row  : {row.describe()}")
     row_name = row.get("name")
     assert row_name is not None
@@ -588,7 +659,7 @@ if __name__ == "__main__":
     assert row_score is not None
     print(f"    score  : {row_score.describe()}")
 
-    elem = lift_html_element("h1", {"class":"header","id":"title"})
+    elem = lift_html_element("h1", {"class": "header", "id": "title"})
     print(f"\n  HTML <h1>: {elem.describe()}")
     elem_attrs = elem.get("attrs")
     assert elem_attrs is not None

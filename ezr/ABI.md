@@ -19,7 +19,7 @@ in any one layer — swapping a `uint8_t` for a `uint16_t`, reordering
 two fields, adding one field — corrupts the `confidence` number silently
 in every other layer. The trust number would lie and nothing would say so.
 
-```
+```text
 before:
   offsetof(state)      = 208   ← correct
   offsetof(defect)     = 212   ← 4 bytes padding inserted here by compiler
@@ -162,7 +162,9 @@ carried the same Python-interpreter row as three other documents and
 `FINDINGS.md`, and `FINDINGS.md` said 81 while these said 83. Counts now
 live in exactly one place, generated from a real run:
 
-    python3 tests/assertion_counts.py
+```sh
+python3 tests/assertion_counts.py
+```
 
 `FINDINGS.md` §5 carries the output and `--check` fails the gate when it
 goes stale. See §5 there for why the 81 survived as long as it did.

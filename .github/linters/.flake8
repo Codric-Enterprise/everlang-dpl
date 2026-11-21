@@ -1,0 +1,4 @@
+# Line length matches [tool.black] in pyproject.toml; E203 and W503 clash with black.
+[flake8]
+max-line-length = 100
+extend-ignore = E203, W503

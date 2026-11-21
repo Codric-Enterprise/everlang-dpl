@@ -292,9 +292,15 @@ else:
             emitted_b = [bytes.fromhex(h) for h in emitted]
             ok("C emitted every lifter's output", len(emitted_b) == 7)
             if len(emitted_b) == 7:
-                c_text_null, c_lit_null, c_lit_empty, c_nullptr, c_row, c_row_at, c_nobuf = (
-                    emitted_b
-                )
+                (
+                    c_text_null,
+                    c_lit_null,
+                    c_lit_empty,
+                    c_nullptr,
+                    c_row,
+                    c_row_at,
+                    c_nobuf,
+                ) = emitted_b
                 ok(
                     "C ev_text(NULL) is unknown in Python",
                     unknown_with(

@@ -42,7 +42,10 @@ def test_java_self_healing_audit():
     version = subprocess.run(["mvn", "-v"], capture_output=True, text=True).stdout
     found = re.search(r"Java version: (\d+)", version)
     if found and int(found.group(1)) < 25:
-        pytest.fail(f"Maven runs on JDK {found.group(1)}; 5-runtime-java needs JDK 25. Point JAVA_HOME at a JDK 25.")
+        pytest.fail(
+            f"Maven runs on JDK {found.group(1)}; 5-runtime-java needs JDK 25."
+            " Point JAVA_HOME at a JDK 25."
+        )
     _run(["mvn", "-q", "-f", "5-runtime-java/pom.xml", "test"], ROOT)
 
 
@@ -73,12 +76,30 @@ def test_ezr_kitchen_sink_sanitizers(tmp_path):
     exe = tmp_path / "kitchen_sink_asan"
     sources = [
         f"0-atom-c/{name}.c"
-        for name in ("kitchen_sink", "form", "form_lower", "tac", "scope", "ir", "evalue", "tapestry")
+        for name in (
+            "kitchen_sink",
+            "form",
+            "form_lower",
+            "tac",
+            "scope",
+            "ir",
+            "evalue",
+            "tapestry",
+        )
     ]
     # Without -fno-sanitize-recover, UBSan reports a finding and the program still exits 0.
     _run(
-        ["gcc", "-std=c99", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
-         "-o", str(exe), *sources, "-lm"],
+        [
+            "gcc",
+            "-std=c99",
+            "-g",
+            "-fsanitize=address,undefined",
+            "-fno-sanitize-recover=all",
+            "-o",
+            str(exe),
+            *sources,
+            "-lm",
+        ],
         EZR,
     )
     _run([str(exe)], EZR)
@@ -91,8 +112,17 @@ def test_ezr_unknown_boundary_sanitizers(tmp_path):
     exe = tmp_path / "unknown_asan"
     sources = [f"0-atom-c/{name}.c" for name in ("unknown_test", "evalue", "tapestry")]
     _run(
-        ["gcc", "-std=c99", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
-         "-o", str(exe), *sources, "-lm"],
+        [
+            "gcc",
+            "-std=c99",
+            "-g",
+            "-fsanitize=address,undefined",
+            "-fno-sanitize-recover=all",
+            "-o",
+            str(exe),
+            *sources,
+            "-lm",
+        ],
         EZR,
     )
     _run([str(exe)], EZR)
